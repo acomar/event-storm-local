@@ -1,0 +1,62 @@
+import {kinds,statuses,relations} from './domain.js';
+import {esc,icon,iconButton} from './ui.js';
+
+const W=210,H=146;
+export class Board {
+  constructor(container, api) {this.el=container;this.api=api;this.grid=true;this.abort=new AbortController();this.mount();}
+  mount(){
+    this.el.innerHTML=`<div class="board-caption"><strong>Exploração do domínio</strong><span class="board-count"></span></div><div class="world"><svg class="connections" aria-label="Relações do mapa"><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="none" stroke="currentColor"/></marker></defs><g class="edge-group"></g></svg><div class="cards" role="listbox" aria-multiselectable="true" aria-label="Elementos do mapa"></div></div><div class="empty-canvas"><h2>O que aconteceu no seu negócio?</h2><p>Adicione um evento, dê um duplo clique no mapa<br>ou comece uma conversa com o facilitador.</p></div><div class="board-controls">${iconButton('zoom-out','Diminuir zoom','search')}<span class="zoom-value">100%</span>${iconButton('zoom-in','Aumentar zoom','plus')}${iconButton('fit','Ajustar mapa','zoom')}${iconButton('grid','Alternar grade','grid')}</div><svg class="minimap" role="button" tabindex="0" aria-label="Minimapa: centralizar mapa" viewBox="0 0 180 110"></svg>`;
+    this.world=this.el.querySelector('.world');this.cards=this.el.querySelector('.cards');this.edges=this.el.querySelector('.edge-group');
+    const opts={signal:this.abort.signal};
+    this.el.addEventListener('pointerdown',e=>this.down(e),opts);
+    this.el.addEventListener('dblclick',e=>{if(this.api.locked())return;if(e.target.closest('.sticky')){e.preventDefault();this.inline(e.target.closest('.sticky').dataset.id);}else if(!e.target.closest('button,.minimap'))this.api.add('event',this.point(e));},opts);
+    this.el.addEventListener('contextmenu',e=>{e.preventDefault();const card=e.target.closest('.sticky');if(card)this.api.menu(card.dataset.id,e.clientX,e.clientY);},opts);
+    this.el.addEventListener('wheel',e=>{if(this.api.locked()||e.target.closest('textarea'))return;e.preventDefault();if(e.shiftKey){this.camera.x-=e.deltaY;this.camera.y-=e.deltaX;this.cameraChanged();}else this.zoom(Math.exp(-e.deltaY*.0015),e.clientX,e.clientY);},{...opts,passive:false});
+    this.el.addEventListener('click',e=>{const a=e.target.closest('[data-action]')?.dataset.action;if(a==='zoom-in')this.zoom(1.2);if(a==='zoom-out')this.zoom(1/1.2);if(a==='fit')this.fit();if(a==='grid'){this.grid=!this.grid;this.el.classList.toggle('no-grid',!this.grid);e.target.closest('button').setAttribute('aria-pressed',String(this.grid));}if(e.target.closest('.minimap'))this.fit();const edge=e.target.closest('[data-edge]');if(edge)this.api.edge(edge.dataset.edge);},opts);
+    this.el.querySelector('.minimap').addEventListener('keydown',e=>{if(e.key==='Enter')this.fit()},opts);
+    this.el.addEventListener('keydown',e=>{
+      const edge=e.target.closest('[data-edge]');
+      if(edge&&['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();this.api.edge(edge.dataset.edge);return;}
+      const handle=e.target.closest('.handle');
+      if(handle&&['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();if(!this.api.locked())this.api.connectionStart(handle.closest('.sticky').dataset.id);}
+    },opts);
+    this.el.addEventListener('click',e=>{const handle=e.target.closest('.handle');if(handle&&e.detail===0&&!this.api.locked()){e.stopPropagation();this.api.connectionStart(handle.closest('.sticky').dataset.id);}},opts);
+    this.update();
+  }
+  get graph(){return this.api.project().graph;}
+  point(e){const r=this.el.getBoundingClientRect();return {x:(e.clientX-r.left-this.camera.x)/this.camera.zoom,y:(e.clientY-r.top-this.camera.y)/this.camera.zoom};}
+  update(){
+    this.camera={...this.graph.viewport};if(!Number.isFinite(this.camera.zoom))this.camera={x:40,y:80,zoom:.75};
+    const nodes=this.graph.nodes.filter(this.api.visible);const selected=this.api.selection();
+    this.cards.innerHTML=nodes.map(n=>`<article class="sticky ${esc(n.kind)} ${selected.has(n.id)?'chosen':''}" data-id="${esc(n.id)}" style="left:${n.position.x}px;top:${n.position.y}px;--sticky:${kinds[n.kind].color}" tabindex="0" role="option" aria-label="${esc(kinds[n.kind].label)}: ${esc(n.name)}" aria-selected="${selected.has(n.id)}"><div class="sticky-type">${esc(kinds[n.kind].label)}<span>${n.properties.pivotal?'★':''}</span></div><div class="sticky-name">${esc(n.name)}</div><div class="sticky-footer"><span>○ ${esc(statuses[n.status])}</span><span>${n.evidence_ids.length?`${n.evidence_ids.length} fonte${n.evidence_ids.length>1?'s':''}`:'Manual'}</span></div><button class="handle left" data-side="left" aria-label="Conectar a ${esc(n.name)}" title="Conectar"></button><button class="handle right" data-side="right" aria-label="Conectar de ${esc(n.name)}" title="Conectar"></button></article>`).join('');
+    this.el.querySelector('.empty-canvas').hidden=this.graph.nodes.length>0;
+    this.el.querySelector('.board-count').textContent=`${this.graph.nodes.length} elementos · ${this.graph.edges.length} relações`;
+    this.drawEdges();this.transform();this.mini(nodes);
+  }
+  transform(){this.world.style.transform=`translate(${this.camera.x}px,${this.camera.y}px) scale(${this.camera.zoom})`;this.el.style.backgroundSize=`${24*this.camera.zoom}px ${24*this.camera.zoom}px`;this.el.style.backgroundPosition=`${this.camera.x}px ${this.camera.y}px`;this.el.querySelector('.zoom-value').textContent=`${Math.round(this.camera.zoom*100)}%`;}
+  cameraChanged(){if(this.api.locked())return;this.transform();this.api.viewport({...this.camera});}
+  zoom(factor,cx,cy){if(this.api.locked())return;const r=this.el.getBoundingClientRect();const x=cx===undefined?r.width/2:cx-r.left,y=cy===undefined?r.height/2:cy-r.top;const old=this.camera.zoom,z=Math.min(2,Math.max(.12,old*factor));this.camera.x=x-(x-this.camera.x)*z/old;this.camera.y=y-(y-this.camera.y)*z/old;this.camera.zoom=z;this.cameraChanged();}
+  fit(){if(this.api.locked())return;const ns=this.graph.nodes.filter(this.api.visible);if(!ns.length)return;const minX=Math.min(...ns.map(n=>n.position.x)),minY=Math.min(...ns.map(n=>n.position.y)),maxX=Math.max(...ns.map(n=>n.position.x+W)),maxY=Math.max(...ns.map(n=>n.position.y+H));const r=this.el.getBoundingClientRect(),z=Math.min(1,(r.width-100)/(maxX-minX),(r.height-140)/(maxY-minY));this.camera={x:(r.width-(maxX-minX)*z)/2-minX*z,y:(r.height-(maxY-minY)*z)/2-minY*z,zoom:Math.max(.12,z)};this.cameraChanged();}
+  coords(id){const dom=this.cards.querySelector(`[data-id="${CSS.escape(id)}"]`);const n=this.graph.nodes.find(n=>n.id===id);return dom?{x:parseFloat(dom.style.left),y:parseFloat(dom.style.top)}:n?.position;}
+  drawEdges(){const ns=this.graph.nodes.filter(this.api.visible);const ids=new Set(ns.map(n=>n.id));this.edges.innerHTML=this.graph.edges.filter(e=>ids.has(e.source)&&ids.has(e.target)).map(e=>{const s=this.coords(e.source),t=this.coords(e.target);if(!s||!t)return '';const x=s.x+W,y=s.y+H/2,tx=t.x,ty=t.y+H/2,dx=Math.max(50,Math.abs(tx-x)/2);const path=`M${x} ${y} C${x+dx} ${y},${tx-dx} ${ty},${tx} ${ty}`;return `<g data-edge="${esc(e.id)}" role="button" tabindex="0" aria-label="${esc(relations[e.relation])}"><path class="edge-hit" d="${path}"/><path class="edge-line" d="${path}" marker-end="url(#arrow)"/><text x="${(x+tx)/2}" y="${(y+ty)/2-8}" text-anchor="middle">${esc(e.label||relations[e.relation])}</text></g>`;}).join('');}
+  mini(ns){const m=this.el.querySelector('.minimap');if(!ns.length){m.innerHTML='';return;}const minX=Math.min(...ns.map(n=>n.position.x)),minY=Math.min(...ns.map(n=>n.position.y)),dx=Math.max(250,...ns.map(n=>n.position.x+W-minX)),dy=Math.max(170,...ns.map(n=>n.position.y+H-minY)),z=Math.min(160/dx,90/dy);m.innerHTML=ns.map(n=>`<rect x="${10+(n.position.x-minX)*z}" y="${10+(n.position.y-minY)*z}" width="${W*z}" height="${H*z}" rx="1" fill="${kinds[n.kind].color}"/>`).join('');}
+  inline(id){if(this.api.locked())return;const n=this.graph.nodes.find(n=>n.id===id),el=this.cards.querySelector(`[data-id="${CSS.escape(id)}"] .sticky-name`);if(!el||el.querySelector('textarea'))return;const input=document.createElement('textarea');input.value=n.name;input.maxLength=240;input.setAttribute('aria-label','Nome do elemento');el.replaceChildren(input);input.focus();input.select();const finish=()=>{const value=input.value.trim()||n.name;this.api.rename(id,value);};input.addEventListener('blur',finish,{once:true});input.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();input.blur();}if(e.key==='Escape'){input.value=n.name;input.blur();}});}
+  down(e){
+    if(e.target.closest('.board-controls,.minimap,textarea,[data-edge]'))return;
+    const card=e.target.closest('.sticky'),handle=e.target.closest('.handle');
+    if(this.api.locked()){if(card&&!handle)this.api.select(card.dataset.id,e.shiftKey,true);return;}
+    if(e.button===2&&card)return;
+    if(handle&&e.button===0){this.connect(e,card.dataset.id);return;}
+    if(card&&e.button===0){
+      const id=card.dataset.id;if(e.shiftKey)this.api.select(id,true,false);else if(!this.api.selection().has(id))this.api.select(id,false,false);
+      const ids=[...this.api.selection()],start={x:e.clientX,y:e.clientY},positions=ids.map(id=>({id,...this.coords(id)}));let moved=false;
+      const move=ev=>{const dx=(ev.clientX-start.x)/this.camera.zoom,dy=(ev.clientY-start.y)/this.camera.zoom;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;for(const p of positions){const d=this.cards.querySelector(`[data-id="${CSS.escape(p.id)}"]`);if(d){d.style.left=`${this.grid?Math.round((p.x+dx)/20)*20:p.x+dx}px`;d.style.top=`${this.grid?Math.round((p.y+dy)/20)*20:p.y+dy}px`;}}this.drawEdges();};
+      const up=()=>{cleanup();if(this.api.locked()){this.update();return;}if(moved)this.api.move(positions.map(p=>({id:p.id,...this.coords(p.id)})));else if(e.shiftKey)this.api.showSelection();else this.api.select(id,false,true);};
+      const cleanup=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});e.preventDefault();return;
+    }
+    if(e.shiftKey&&e.button===0){const start=this.point(e),box=document.createElement('div');box.className='selection-box';this.world.append(box);let end=start;const move=ev=>{end=this.point(ev);Object.assign(box.style,{left:`${Math.min(start.x,end.x)}px`,top:`${Math.min(start.y,end.y)}px`,width:`${Math.abs(end.x-start.x)}px`,height:`${Math.abs(end.y-start.y)}px`});};const up=()=>{window.removeEventListener('pointermove',move);box.remove();if(this.api.locked())return;this.api.selectMany(this.graph.nodes.filter(this.api.visible).filter(n=>n.position.x+W>=Math.min(start.x,end.x)&&n.position.x<=Math.max(start.x,end.x)&&n.position.y+H>=Math.min(start.y,end.y)&&n.position.y<=Math.max(start.y,end.y)).map(n=>n.id));this.api.showSelection();};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});return;}
+    const start={x:e.clientX,y:e.clientY,cx:this.camera.x,cy:this.camera.y};let moved=false;this.el.classList.add('panning');const move=ev=>{const dx=ev.clientX-start.x,dy=ev.clientY-start.y;moved ||= Math.abs(dx)+Math.abs(dy)>4;this.camera.x=start.cx+dx;this.camera.y=start.cy+dy;this.transform();};const up=()=>{window.removeEventListener('pointermove',move);this.el.classList.remove('panning');if(moved)this.cameraChanged();else this.api.select(null,false,true);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});e.preventDefault();
+  }
+  connect(e,id){if(this.api.locked())return;const start=this.graph.nodes.find(n=>n.id===id).position;const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.classList.add('edge-line','draft');this.edges.append(path);const move=ev=>{const p=this.point(ev);path.setAttribute('d',`M${start.x+W} ${start.y+H/2}L${p.x} ${p.y}`);};const up=ev=>{window.removeEventListener('pointermove',move);path.remove();if(this.api.locked())return;const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.sticky')?.dataset.id;if(target&&target!==id)this.api.connect(id,target);else{this.api.connectionStart(id);}};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});e.preventDefault();e.stopPropagation();}
+  destroy(){this.abort.abort();}
+}

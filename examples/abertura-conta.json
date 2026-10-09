@@ -1,0 +1,383 @@
+{
+  "schema_version": "1.0",
+  "id": "1fac7305-d28a-432c-9c88-91de481c624e",
+  "name": "Abertura de conta",
+  "objective": "Exemplo fictício para exploração",
+  "modality": "big_picture",
+  "version": 1,
+  "graph": {
+    "nodes": [
+      {
+        "id": "030b3be6-c6b6-4b1f-8d6d-3f11e4dd08e4",
+        "kind": "actor",
+        "name": "Cliente",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 60.0,
+          "y": 10.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "a9d539d0-3914-4b9e-b27d-ade611e1112a"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192828+00:00",
+        "updated_at": "2026-10-08T01:18:57.192830+00:00"
+      },
+      {
+        "id": "540ac648-e489-4909-9e63-4be9c605fe03",
+        "kind": "command",
+        "name": "Solicitar abertura",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 60.0,
+          "y": 165.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "b375cd1d-d63d-41a0-bdcf-55607092eb69"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192848+00:00",
+        "updated_at": "2026-10-08T01:18:57.192850+00:00"
+      },
+      {
+        "id": "a16d4d6a-d1fd-4730-831c-263a8b14487b",
+        "kind": "event",
+        "name": "Abertura Solicitada",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 315.0,
+          "y": 165.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "cd09ee6a-0403-4149-b3df-57798647d0f8"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192862+00:00",
+        "updated_at": "2026-10-08T01:18:57.192864+00:00"
+      },
+      {
+        "id": "a8d3543d-fd9f-4531-a9c1-9cd8498d7eda",
+        "kind": "event",
+        "name": "Documentos Recebidos",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 570.0,
+          "y": 165.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "f467fcb5-e5ea-4a83-be30-b1d6e47d3086"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192876+00:00",
+        "updated_at": "2026-10-08T01:18:57.192877+00:00"
+      },
+      {
+        "id": "7c060ca0-3621-403c-91fd-8fb27885a40e",
+        "kind": "event",
+        "name": "Documentação Validada",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 825.0,
+          "y": 165.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "6dd6ac60-73e8-46d4-811b-ef214fe20484"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192887+00:00",
+        "updated_at": "2026-10-08T01:18:57.192914+00:00"
+      },
+      {
+        "id": "86f42bcc-c809-4c70-9d54-b3375ef01120",
+        "kind": "policy",
+        "name": "Quando validada, solicitar abertura",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 825.0,
+          "y": 385.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "00175097-975e-4763-a182-5ce4c3fba714"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192927+00:00",
+        "updated_at": "2026-10-08T01:18:57.192930+00:00"
+      },
+      {
+        "id": "dae9d920-8bef-4ce7-8975-48385363c41d",
+        "kind": "command",
+        "name": "Abrir conta",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 1080.0,
+          "y": 385.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "a6ba070c-f8e3-4e5d-a48e-52817f01f8e2"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192943+00:00",
+        "updated_at": "2026-10-08T01:18:57.192944+00:00"
+      },
+      {
+        "id": "e0b07793-92b9-4203-8f09-362ff66cfedc",
+        "kind": "event",
+        "name": "Conta Aberta",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 1335.0,
+          "y": 165.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "e0951e9d-7c00-4513-a4f3-b7868bce4726"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192956+00:00",
+        "updated_at": "2026-10-08T01:18:57.192957+00:00"
+      },
+      {
+        "id": "e6b50b73-547f-47ce-a913-324d2a278a19",
+        "kind": "external_system",
+        "name": "Core bancário",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 1335.0,
+          "y": -45.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "12425329-5f0f-4d89-9546-f48584a1bbfc"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192968+00:00",
+        "updated_at": "2026-10-08T01:18:57.192970+00:00"
+      },
+      {
+        "id": "790fca18-581c-4e55-a812-cb11cab5dffe",
+        "kind": "event",
+        "name": "Cliente Notificado",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 1590.0,
+          "y": 165.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "073f962b-d046-4164-bacb-505a0be2585d"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192980+00:00",
+        "updated_at": "2026-10-08T01:18:57.192982+00:00"
+      },
+      {
+        "id": "52cadb41-9b86-49b9-a2f1-69e00f2d5bc1",
+        "kind": "hotspot",
+        "name": "E se os documentos forem recusados?",
+        "description": "",
+        "context": "Abertura de conta",
+        "properties": {},
+        "position": {
+          "x": 570.0,
+          "y": 405.0
+        },
+        "origin": "document",
+        "evidence_ids": [
+          "5cf830d0-eb8f-45f0-9789-dc625e0d026a"
+        ],
+        "status": "pending",
+        "author": "Especialista local",
+        "created_at": "2026-10-08T01:18:57.192993+00:00",
+        "updated_at": "2026-10-08T01:18:57.192995+00:00"
+      }
+    ],
+    "edges": [
+      {
+        "id": "469a5d3e-55cf-441f-a35c-abaa7247c201",
+        "source": "540ac648-e489-4909-9e63-4be9c605fe03",
+        "target": "030b3be6-c6b6-4b1f-8d6d-3f11e4dd08e4",
+        "relation": "performed_by",
+        "label": ""
+      },
+      {
+        "id": "76458cf9-9812-44e8-9e20-98ee9f199721",
+        "source": "540ac648-e489-4909-9e63-4be9c605fe03",
+        "target": "a16d4d6a-d1fd-4730-831c-263a8b14487b",
+        "relation": "produces",
+        "label": ""
+      },
+      {
+        "id": "3dff3273-dbfd-4558-a30e-3753328aa072",
+        "source": "a16d4d6a-d1fd-4730-831c-263a8b14487b",
+        "target": "a8d3543d-fd9f-4531-a9c1-9cd8498d7eda",
+        "relation": "before",
+        "label": ""
+      },
+      {
+        "id": "60fe93bd-69c5-4045-a1f5-b428c55508cb",
+        "source": "a8d3543d-fd9f-4531-a9c1-9cd8498d7eda",
+        "target": "7c060ca0-3621-403c-91fd-8fb27885a40e",
+        "relation": "before",
+        "label": ""
+      },
+      {
+        "id": "f4369af2-8f44-4ab6-ac38-2f726ae4b6eb",
+        "source": "7c060ca0-3621-403c-91fd-8fb27885a40e",
+        "target": "86f42bcc-c809-4c70-9d54-b3375ef01120",
+        "relation": "triggers",
+        "label": ""
+      },
+      {
+        "id": "98535359-0957-4abc-940f-8ebb804d9412",
+        "source": "86f42bcc-c809-4c70-9d54-b3375ef01120",
+        "target": "dae9d920-8bef-4ce7-8975-48385363c41d",
+        "relation": "triggers",
+        "label": ""
+      },
+      {
+        "id": "c0b49965-a267-4532-a6ec-f8ef62877b5e",
+        "source": "dae9d920-8bef-4ce7-8975-48385363c41d",
+        "target": "e0b07793-92b9-4203-8f09-362ff66cfedc",
+        "relation": "produces",
+        "label": ""
+      },
+      {
+        "id": "cfd10fde-048a-4275-8522-2c040bd2a364",
+        "source": "e0b07793-92b9-4203-8f09-362ff66cfedc",
+        "target": "e6b50b73-547f-47ce-a913-324d2a278a19",
+        "relation": "depends_on",
+        "label": ""
+      },
+      {
+        "id": "28cda76a-d094-4a0c-8d55-3876c14c95c6",
+        "source": "e0b07793-92b9-4203-8f09-362ff66cfedc",
+        "target": "790fca18-581c-4e55-a812-cb11cab5dffe",
+        "relation": "before",
+        "label": ""
+      }
+    ],
+    "sources": [
+      {
+        "id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "name": "Cenário didático de abertura de conta",
+        "kind": "example",
+        "content": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "created_at": "2026-10-08T01:18:57.192768+00:00"
+      }
+    ],
+    "evidences": [
+      {
+        "id": "a9d539d0-3914-4b9e-b27d-ade611e1112a",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "b375cd1d-d63d-41a0-bdcf-55607092eb69",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "cd09ee6a-0403-4149-b3df-57798647d0f8",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "f467fcb5-e5ea-4a83-be30-b1d6e47d3086",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "6dd6ac60-73e8-46d4-811b-ef214fe20484",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "00175097-975e-4763-a182-5ce4c3fba714",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "a6ba070c-f8e3-4e5d-a48e-52817f01f8e2",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "e0951e9d-7c00-4513-a4f3-b7868bce4726",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "12425329-5f0f-4d89-9546-f48584a1bbfc",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "073f962b-d046-4164-bacb-505a0be2585d",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      },
+      {
+        "id": "5cf830d0-eb8f-45f0-9789-dc625e0d026a",
+        "source_id": "a7bbcaf8-a626-4dee-86e9-a6f3776aec8a",
+        "quote": "Exemplo fictício e editável. Cliente solicita abertura. Documentos são recebidos e validados. Após a validação, solicitar abertura. Conta é aberta no core bancário. Cliente é notificado. Documentação recusada exige investigação.",
+        "explanation": "Cenário demonstrativo, não representa processo bancário real."
+      }
+    ],
+    "proposals": [],
+    "answers": [],
+    "viewport": {
+      "x": 0.0,
+      "y": 0.0,
+      "zoom": 0.8
+    }
+  },
+  "created_at": "2026-10-08T01:18:57.192738+00:00",
+  "updated_at": "2026-10-08T01:18:57.192753+00:00"
+}

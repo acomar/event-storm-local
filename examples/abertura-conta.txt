@@ -1,0 +1,5 @@
+O cliente solicita abertura de conta.
+Os documentos são recebidos.
+A documentação é validada.
+Se a documentação estiver incompleta, a abertura não pode continuar.
+A conta é aberta e o cliente é notificado.

@@ -1,0 +1,13 @@
+{
+  "name": "event-storm-local",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EventStorming Studio local-first em HTML, CSS e JavaScript, sem dependências de aplicação.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "standalone": "node scripts/build-standalone.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
