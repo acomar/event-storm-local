@@ -10,7 +10,7 @@ test('standalone tracked file matches its sources and contains no external shell
   const result = await buildStandalone({ write: false });
   const tracked = await readFile(new URL('../standalone.html', import.meta.url), 'utf8');
   assert.equal(tracked, result.html, 'Regenerate standalone.html with npm run standalone after source changes.');
-  assert.equal(result.order.length, 6);
+  assert.equal(result.order.length, 8);
   assert.ok(result.order.indexOf('domain.js') < result.order.indexOf('facilitator.js'));
   assert.ok(result.order.indexOf('ui.js') < result.order.indexOf('canvas.js'));
   assert.equal(result.order.at(-1), 'app.js');
@@ -29,6 +29,7 @@ test('isolated standalone modules preserve domain, facilitation, history and res
   vm.runInContext(bundle, context, { timeout: 2000 });
   const modules = context.__standaloneTestModules;
   assert.ok(modules['domain.js']);
+  assert.ok(modules['ai-facilitator.js'].buildMessages);
   assert.ok(modules['version-control.js']);
   assert.ok(modules['ui.js'].esc);
   assert.ok(modules['canvas.js'].Board);

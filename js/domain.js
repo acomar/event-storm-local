@@ -1,4 +1,5 @@
 /** Portable schema 1.0, compatible with eventstorm-studio JSON exports. */
+import { normalizeAIHTTP } from './http-request.js';
 export const kinds = Object.freeze({
   event: { label: 'Evento', color: '#ffba66', hint: 'Algo relevante que aconteceu. Ex.: Conta Aberta.' },
   command: { label: 'Comando', color: '#8cc9f5', hint: 'Uma intenção. Ex.: Abrir Conta.' },
@@ -16,6 +17,8 @@ export const kinds = Object.freeze({
 export const statuses = Object.freeze({ extracted: 'Extraído', suggested: 'Sugerido', hypothesis: 'Hipótese', pending: 'Pendente', validated: 'Validado', contested: 'Contestado', rejected: 'Rejeitado' });
 export const relations = Object.freeze({ before: 'Acontece antes de', triggers: 'Dispara', produces: 'Produz', performed_by: 'É executado por', depends_on: 'Depende de', queries: 'Consulta', reacts_to: 'Reage a', belongs_to: 'Pertence a', integrates: 'Integra com', contradicts: 'Contradiz', alternative: 'É alternativa a' });
 export const origins = Object.freeze({ person: 'Declarado por pessoa', document: 'Documento', code: 'Evidência de código', deterministic: 'Heurística sem IA', ai: 'Sugestão de IA', expert: 'Especialista' });
+export const connectionSides = Object.freeze(['top', 'right', 'bottom', 'left']);
+export const contextDimensions = Object.freeze({ width: 600, height: 360, minWidth: 240, minHeight: 180, maxWidth: 10000, maxHeight: 10000 });
 export const limits = Object.freeze({ nodes: 5000, edges: 15000, sources: 300, evidences: 15000, proposals: 5000, answers: 1000, sourceContent: 100000, extractionContent: 30000 });
 export const uid = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
@@ -71,7 +74,7 @@ function normalizeCard(value, path, timestamp) {
   fields(value, ['id', 'kind', 'name', 'description', 'context', 'properties', 'position', 'origin', 'evidence_ids', 'status', 'author', 'created_at', 'updated_at'], path);
   const position = value.position ?? {};
   fields(position, ['x', 'y'], `${path}.position`);
-  return {
+  const card = {
     id: id(value.id ?? uid(), `${path}.id`),
     kind: choice(value.kind, Object.keys(kinds), `${path}.kind`, 'event'),
     name: string(value.name, `${path}.name`, 240, undefined, true),
@@ -86,6 +89,11 @@ function normalizeCard(value, path, timestamp) {
     created_at: date(value.created_at, `${path}.created_at`, timestamp),
     updated_at: date(value.updated_at, `${path}.updated_at`, timestamp)
   };
+  if (card.kind === 'context') {
+    if (card.properties.width !== undefined) numeric(card.properties.width, `${path}.properties.width`, undefined, contextDimensions.minWidth, contextDimensions.maxWidth);
+    if (card.properties.height !== undefined) numeric(card.properties.height, `${path}.properties.height`, undefined, contextDimensions.minHeight, contextDimensions.maxHeight);
+  }
+  return card;
 }
 
 export function newCard(kind, position = { x: 150, y: 150 }) {
@@ -107,15 +115,18 @@ export function newProject(name = 'Novo mapa', objective = '', example = false) 
 
 /** Returns a detached normalized copy. Missing optional schema-1.0 fields gain defaults. */
 export function validateProject(value) {
-  fields(value, ['schema_version', 'id', 'name', 'objective', 'modality', 'version', 'graph', 'created_at', 'updated_at'], 'project');
+  fields(value, ['schema_version', 'id', 'name', 'objective', 'modality', 'version', 'graph', 'ai_http', 'created_at', 'updated_at'], 'project');
   const timestamp = now();
   const graph = value.graph ?? {};
   fields(graph, ['nodes', 'edges', 'sources', 'evidences', 'proposals', 'answers', 'viewport'], 'graph');
   const g = {
     nodes: list(graph.nodes, 'graph.nodes', limits.nodes, (n, p) => normalizeCard(n, p, timestamp)),
     edges: list(graph.edges, 'graph.edges', limits.edges, (e, p) => {
-      fields(e, ['id', 'source', 'target', 'relation', 'label'], p);
-      return { id: id(e.id ?? uid(), `${p}.id`), source: id(e.source, `${p}.source`), target: id(e.target, `${p}.target`), relation: choice(e.relation, Object.keys(relations), `${p}.relation`, 'before'), label: string(e.label, `${p}.label`, 200, '') };
+      fields(e, ['id', 'source', 'target', 'relation', 'label', 'source_side', 'target_side'], p);
+      const edge = { id: id(e.id ?? uid(), `${p}.id`), source: id(e.source, `${p}.source`), target: id(e.target, `${p}.target`), relation: choice(e.relation, Object.keys(relations), `${p}.relation`, 'before'), label: string(e.label, `${p}.label`, 200, '') };
+      if (e.source_side !== undefined) edge.source_side = choice(e.source_side, connectionSides, `${p}.source_side`);
+      if (e.target_side !== undefined) edge.target_side = choice(e.target_side, connectionSides, `${p}.target_side`);
+      return edge;
     }),
     sources: list(graph.sources, 'graph.sources', limits.sources, (s, p) => {
       fields(s, ['id', 'name', 'kind', 'content', 'created_at'], p);
@@ -158,7 +169,7 @@ export function validateProject(value) {
     schema_version: choice(value.schema_version, ['1.0'], 'project.schema_version', '1.0'),
     id: id(value.id ?? uid(), 'project.id'), name: string(value.name, 'project.name', 160, undefined, true),
     objective: string(value.objective, 'project.objective', 2000, ''), modality: choice(value.modality, ['big_picture', 'process', 'design'], 'project.modality', 'big_picture'),
-    version, graph: g, created_at: date(value.created_at, 'project.created_at', timestamp), updated_at: date(value.updated_at, 'project.updated_at', timestamp)
+    version, graph: g, ...(value.ai_http === undefined ? {} : { ai_http: normalizeAIHTTP(value.ai_http) }), created_at: date(value.created_at, 'project.created_at', timestamp), updated_at: date(value.updated_at, 'project.updated_at', timestamp)
   };
 }
 

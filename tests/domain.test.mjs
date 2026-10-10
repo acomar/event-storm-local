@@ -37,6 +37,24 @@ test('defaults normalize an early schema 1.0 draft and constructors provide deta
   assert.throws(() => newCard('missing'), /tipo/);
 });
 
+test('optional edge endpoints round-trip while legacy edges gain no new fields', () => {
+  const project=exampleProject(),legacy=structuredClone(project.graph.edges[0]);
+  assert.deepEqual(validateProject(project).graph.edges[0],legacy);
+  project.graph.edges[0].source_side='bottom';project.graph.edges[0].target_side='top';
+  const copy=validateProject(project);assert.equal(copy.graph.edges[0].source_side,'bottom');assert.equal(copy.graph.edges[0].target_side,'top');
+  assert.deepEqual(validateProject(copy),copy);
+  project.graph.edges[0].source_side='center';assert.throws(()=>validateProject(project),/source_side/);
+});
+
+test('context dimensions remain optional schema properties with validated finite bounds', () => {
+  const project=newProject('Contextos'),context=newCard('context');project.graph.nodes.push(context);
+  assert.deepEqual(validateProject(project).graph.nodes[0].properties,{});
+  context.properties={width:860,height:540};assert.deepEqual(validateProject(project).graph.nodes[0].properties,{width:860,height:540});
+  context.properties.width='600';assert.throws(()=>validateProject(project),/properties.width/);
+  context.properties.width=20;assert.throws(()=>validateProject(project),/240/);
+  context.properties.width=860;context.properties.height=10001;assert.throws(()=>validateProject(project),/10000/);
+});
+
 test('unknown schema, extra fields, corrupt values and excessive input are rejected', () => {
   const project = newProject('Teste');
   assert.throws(() => validateProject({ ...project, schema_version: '2.0' }), /schema_version/);

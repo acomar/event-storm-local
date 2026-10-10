@@ -1,8 +1,8 @@
 {
   "name": "event-storm-local",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "EventStorming Studio local-first em HTML, CSS e JavaScript, sem dependências de aplicação.",
+  "description": "EventStorming local-first com facilitador de IA, editor HTTP parametrizável e histórico portátil, sem pacotes externos.",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {

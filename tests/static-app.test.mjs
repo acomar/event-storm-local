@@ -52,7 +52,7 @@ test('browser entry and its complete module graph resolve to local, valid JavaSc
   assert.match(html, /<html\s+lang="pt-BR"/);
   assert.match(html, /<script\s+type="module"\s+src="\.\/js\/app\.js"/);
   const resources = await applicationResources();
-  for (const expected of ['js/app.js', 'js/domain.js', 'js/facilitator.js', 'js/version-control.js', 'js/canvas.js', 'js/ui.js', 'styles.css', 'manifest.webmanifest']) assert.ok(resources.has(expected), expected);
+  for (const expected of ['js/app.js', 'js/http-request.js', 'js/domain.js', 'js/facilitator.js', 'js/ai-facilitator.js', 'js/version-control.js', 'js/canvas.js', 'js/ui.js', 'styles.css', 'manifest.webmanifest']) assert.ok(resources.has(expected), expected);
 });
 
 test('service-worker installation precaches every resource required to reopen the workspace offline', async () => {

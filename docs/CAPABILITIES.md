@@ -21,7 +21,7 @@ Esta matriz segue a [skill local-first-version-control](https://github.com/acoma
 | Offline | Reload com servidor parado, extração e propostas preservadas exercitados | Simulação de falha | Falha preserva local |
 | Permissão de pasta | Handle persistido quando possível | Simulação | Reautorizar handle conhecido antes de abrir seletor |
 | Multiusuário entre computadores | Não é garantia do LocalStore | Testa semântica; não prova filesystem | Experimental; provider pode atrasar visibilidade |
-| API/Drive/GitHub remoto | Não implementado | Não implementado | Não implementado |
+| Adapter remoto de workshops / Drive / GitHub | Não implementado | Não implementado | Não implementado |
 
 O adapter de memória é usado somente nos testes e na prova de semântica. O armazenamento de produção é o navegador. A publicação no GitHub do código-fonte é independente do versionamento de workshops.
 
@@ -31,7 +31,7 @@ A pasta mantém `manifests/`, `objects/` e `heads/` dentro de `.event-storm-loca
 
 | Ambiente | Edição/IndexedDB | Cache offline | Escolha de pasta | Handle/reautorização | Evidência |
 |---|---|---|---|---|---|
-| Navegador interno Chromium, Windows | Criação, facilitador, histórico, duas abas, canvas por teclado e integração de pacotes exercitados; abriu sem aviso de fallback | Exercitado com servidor local parado: reload, edição e retomada | Não exercitado | Não exercitado | [Relatório de interação na UI](TEST_REPORT.md) |
+| Navegador interno Chromium, Windows | Criação, histórico, duas abas, canvas por teclado, integração de pacotes e roteiro de oito perguntas exercitados; abriu sem aviso de fallback | Exercitado com servidor local parado: reload, edição e retomada | Não exercitado | Não exercitado | [Relatório de interação na UI](TEST_REPORT.md) |
 | Chrome Desktop instalado | Não exercitado | Não exercitado | Detectada por disponibilidade da API | Não exercitado | Sem certificação nesta entrega |
 | Edge Desktop | Não exercitado | Não exercitado | Detectada por disponibilidade da API | Não exercitado | Sem certificação nesta entrega |
 | Firefox Desktop | Não exercitado | Não exercitado | Pacote portátil quando API ausente | Não prometido | Sem certificação nesta entrega |
@@ -42,11 +42,32 @@ Pasta requer contexto seguro e ação explícita do usuário. O browser pode neg
 
 A recuperação distingue referência e permissão: uma pasta conhecida e autorizada é reutilizada; uma pasta conhecida sem permissão oferece **Permitir acesso** no mesmo handle; o seletor só é usado se a referência foi perdida ou ficou inutilizável. Esse protocolo foi exercitado com adapter controlado, não com autorização real de pasta no navegador.
 
-O HTML único não precisa buscar JS/CSS/ícone externos e não registra service worker. O `standalone.html` foi aberto via HTTP, carregou o exemplo com 11 nós e nove relações e exibiu o Facilitador. Abrir em `file://` depende do suporte de armazenamento e das permissões da plataforma. O caso direto não foi exercitado porque a política da ferramenta de navegação deste ambiente aceita apenas HTTP/HTTPS; essa restrição não determina compatibilidade do arquivo no navegador do usuário.
+O HTML único não precisa buscar JS/CSS/ícone externos e não registra service worker. Na verificação inicial, o `standalone.html` foi aberto via HTTP, carregou o exemplo com 11 nós e nove relações e exibiu o facilitador determinístico. Abrir em `file://` depende do suporte de armazenamento e das permissões da plataforma. O caso direto não foi exercitado porque a política da ferramenta de navegação deste ambiente aceita apenas HTTP/HTTPS; essa restrição não determina compatibilidade do arquivo no navegador do usuário. IA pela ponte exige HTTP na origem do backend; execução direta dispensa essa ponte quando o endpoint permite CORS.
+
+## Facilitação com IA
+
+| Capacidade | Implementação e evidência |
+|---|---|
+| Entrevista guiada sem modelo | UI verificada: oito perguntas e oito orientações, sem campos/formulário/chat; alternância preservou os dois elementos e uma relação do mapa |
+| Extração de TXT/Markdown | Geração determinística de propostas locais com evidências; independente do modelo |
+| Conversa com IA | Contrato estruturado, uma pergunta por vez e contexto limitado; UI exercitada com duas respostas controladas, quatro mensagens retomadas após reload |
+| Atualização do mapa | Novos cartões como hipóteses; revisão aceita de comando validado preservou identidade, posição e quatro vínculos; remoções preservam o original; resposta controlada inválida recusada sem alterar os oito elementos e nove relações |
+| Evidência e certeza | Trecho literal de fonte válida; nenhuma confiança numérica inventada; modelo não valida conhecimento |
+| Ponte HTTP nativa | Oito testes de IA aprovados com provedor local simulado: configuração, encaminhamento, origem, limites, erros, cancelamento e concorrência |
+| Editor HTTP | Múltiplos perfis, método, URL, query, cabeçalhos, variáveis, autenticação, corpo, caminho da resposta, preview e teste; exportação e reload exercitados pela UI |
+| Credenciais e destino | Perfis salvos guardam credenciais no navegador e nos arquivos/versões; destinos HTTP/HTTPS configuráveis; rota legada por ambiente preservada |
+| Ollama / LM Studio / modelo real | Configuração documentada com fontes oficiais; instalação, inferência real e qualidade da conversa não verificadas nesta evidência |
+| IA sem servidor do aplicativo | Execução direta com CORS exercitada pela UI via HTTP; acesso direto em `file://` não exercitado |
+
+O caminho real sem servidor de modelo disponível mostrou erro de conexão, preservou dois cartões e uma relação e recuperou o rascunho após reload. A área de contexto foi redimensionada e movida por teclado; o clique em cartão interno funcionou, e as quatro opções de lado de conexão geraram vínculos pela UI. O layout controlado alinhou ator, comando e eventos em faixas distintas. Esses cenários estão registrados no [relatório de testes](TEST_REPORT.md).
+
+A consulta de configuração não comprova que o provedor está acessível nem que o modelo está carregado. O endpoint e o identificador padrão são exemplos de configuração. O conteúdo enviado à IA inclui um recorte da conversa, das fontes e do mapa; um destino remoto recebe esse conteúdo. Limites e procedimentos estão em [AI_SETUP.md](AI_SETUP.md).
 
 ## Evidências automatizadas
 
-Execução auditada em 9 de outubro de 2026, Windows e Node.js: **58 testes, 57 aprovados, 0 falhas e 1 ignorado**. Quantidades por suíte e comandos efetivos estão no [relatório de testes](TEST_REPORT.md), que separa testes controlados e uso real da interface.
+A execução completa da versão 1.2.0 em 9 de outubro de 2026, Windows e Node.js, registrou **109 testes, 108 aprovados, 0 falhas e 1 ignorado**, incluindo o editor HTTP e o roteiro simplificado. IA tem **20 testes de facilitador, oito da API legada e 12 de configuração/transporte HTTP**, com respostas e provedor simulados, sem inferência de um modelo real. Contagens históricas e interações na UI estão no [relatório de testes](TEST_REPORT.md).
+
+Os 12 testes HTTP também verificam que configurações e chaves sobrevivem a exportação, importação, snapshots, restauração e merge, com conflito explícito em credenciais divergentes. O HTML único atual contém oito módulos e corresponde às fontes.
 
 Verificação do servidor estático nesta entrega: fluxo HTTP/HEAD, bloqueio de método não permitido, caminhos ocultos, traversal e endereço inválido passou no Windows com Node.js. O teste de symlink externo foi **ignorado** nesse ambiente por falta de permissão do Windows para criar o symlink. A CI contém o teste e poderá exercitá-lo onde a plataforma permitir.
 

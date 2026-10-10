@@ -5,13 +5,15 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const moduleNames = Object.freeze(['domain.js', 'ui.js', 'facilitator.js', 'version-control.js', 'canvas.js', 'app.js']);
+export const moduleNames = Object.freeze(['http-request.js', 'domain.js', 'ui.js', 'facilitator.js', 'ai-facilitator.js', 'version-control.js', 'canvas.js', 'app.js']);
 const expectedExports = {
-  'domain.js': ['kinds', 'statuses', 'relations', 'origins', 'limits', 'uid', 'now', 'newCard', 'newProject', 'validateProject', 'importProject', 'exampleProject'],
+  'http-request.js': ['httpPresets', 'newHTTPRequest', 'normalizeHTTPRequest', 'normalizeAIHTTP', 'readHTTPPath', 'normalizeHTTPWireRequest', 'buildHTTPRequest', 'extractHTTPResponse', 'executeHTTPWireRequest', 'executeHTTPRequest'],
+  'domain.js': ['kinds', 'statuses', 'relations', 'origins', 'connectionSides', 'contextDimensions', 'limits', 'uid', 'now', 'newCard', 'newProject', 'validateProject', 'importProject', 'exampleProject'],
   'ui.js': ['esc', 'icon', 'button', 'iconButton', 'logo', 'date', 'options', 'download'],
   'facilitator.js': ['questions', 'nextQuestion', 'extractContent', 'answerQuestion', 'inspectProject', 'exportBlueprint'],
+  'ai-facilitator.js': ['facilitatorSystemPrompt', 'responseSchema', 'buildMessages', 'parseFacilitatorResponse', 'applyFacilitatorPlan', 'conversationFromProject'],
   'version-control.js': ['VersionError', 'canonicalJSON', 'hash', 'validateProject', 'migrateProject', 'semanticDiff', 'threeWayMerge', 'LocalStore', 'MemoryRepositoryAdapter', 'verifyObject', 'VersionEngine', 'FolderRepositoryAdapter'],
-  'canvas.js': ['Board'],
+  'canvas.js': ['Board', 'normalizeContextSize', 'nodeBounds', 'edgeAnchors', 'edgeCurve'],
   'app.js': []
 };
 
@@ -90,13 +92,13 @@ export function compileModules(sources, { entry = 'app.js', runEntry = true, exp
 }
 
 export async function readSources(root = defaultRoot) {
-  return Object.fromEntries(await Promise.all(moduleNames.map(async name => [name, await readFile(resolve(root, 'js', name), 'utf8')])));
+  return Object.fromEntries(await Promise.all(moduleNames.map(async name => [name, (await readFile(resolve(root, 'js', name), 'utf8')).replace(/\r\n?/g, '\n')])));
 }
 
 export async function buildStandalone({ root = defaultRoot, write = true } = {}) {
   const sources = await readSources(root);
   const { bundle, order } = compileModules(sources);
-  const [template, css, icon] = await Promise.all(['index.html', 'styles.css', 'icon.svg'].map(name => readFile(resolve(root, name), 'utf8')));
+  const [template, css, icon] = await Promise.all(['index.html', 'styles.css', 'icon.svg'].map(async name => (await readFile(resolve(root, name), 'utf8')).replace(/\r\n?/g, '\n')));
   if (/<\/script\b/i.test(bundle) || /<\/style\b/i.test(css)) throw new Error('Fechamento HTML em conteúdo inline requer revisão antes de empacotar.');
   let html = template;
   const replaceOnce = (pattern, replacement, label) => {

@@ -2,9 +2,9 @@
 
 ## Decisão principal
 
-Aplicação estática e modular, sem build e sem dependências de runtime externas. HTML e CSS compõem a interface; módulos JavaScript nativos implementam domínio, facilitação e versionamento. IndexedDB substitui o MongoDB do Studio original. Um servidor estático opcional apenas entrega arquivos; não recebe nem persiste dados de workshop.
+Aplicação estática e modular, sem build e sem dependências de pacotes externas. HTML e CSS compõem a interface; módulos JavaScript nativos implementam domínio, facilitação e versionamento. IndexedDB substitui o MongoDB do Studio original. Um servidor Node.js opcional entrega arquivos e encaminha pedidos de IA ao modelo configurado, sem persistir dados de workshop. Edição, roteiro de perguntas, extração determinística e histórico não dependem desse modelo.
 
-Há duas formas de distribuição das mesmas fontes: `index.html` usa módulos locais servidos por HTTP/HTTPS; `standalone.html` leva o código, CSS e ícone dentro de um único arquivo. O segundo é gerado com um compilador nativo limitado ao grafo de seis módulos auditados, sem pacotes. O compilador aceita imports nomeados estáticos, exports nomeados de const/função/classe, verifica símbolos e ordena dependências. Imports externos, ciclos e formas não suportadas são rejeitados; cada fonte e o bundle passam pela verificação sintática nativa do Node.js.
+Há duas formas de distribuição das mesmas fontes: `index.html` usa módulos locais servidos por HTTP/HTTPS; `standalone.html` leva o código, CSS e ícone dentro de um único arquivo. O segundo é gerado com um compilador nativo limitado ao grafo de oito módulos auditados, sem pacotes. O compilador aceita imports nomeados estáticos, exports nomeados de const/função/classe, verifica símbolos e ordena dependências. Imports externos, ciclos e formas não suportadas são rejeitados; cada fonte e o bundle passam pela verificação sintática nativa do Node.js.
 
 Cada módulo compilado mantém seu escopo numa closure, evitando colisões de nomes. O script final é colocado depois do DOM inicial e desativa o registro de service worker no modo standalone. O HTML único pronto é versionado, e o teste verifica correspondência exata com as fontes para evitar publicação desatualizada. A persistência de origens `file://` continua dependendo do navegador; isso não é garantido pelo empacotamento.
 
@@ -15,7 +15,9 @@ Esta edição é derivada do [Studio na revisão 41fb8656](https://github.com/ac
 ```text
 Interface HTML / CSS / DOM
   ├── Contrato do domínio: validação e identidade
-  ├── Facilitador: fontes → hipóteses → revisão humana → grafo
+  ├── Facilitador determinístico: fontes → propostas → revisão humana → grafo
+  ├── Facilitador IA: contexto → perfil HTTP → ponte local ou navegador → endpoint
+  │     └── resposta validada → hipóteses / propostas de alteração → grafo
   └── VersionEngine
         ├── LocalStore: cópia de trabalho, sessão e objetos
         ├── Diff / merge semântico: Base + Local + Compartilhado
@@ -24,25 +26,35 @@ Interface HTML / CSS / DOM
               └── pasta: objetos e anúncios imutáveis, experimental
 ```
 
-A camada de domínio não conhece DOM, IndexedDB ou filesystem. O facilitador produz candidatos; não confirma conhecimento automaticamente. O motor de versão recebe e valida snapshots estruturados; o adapter define acesso, integridade e publicação. Nenhuma camada executa conteúdo importado como código.
+A camada de domínio não conhece DOM, IndexedDB ou filesystem. Os facilitadores produzem candidatos; não confirmam conhecimento automaticamente. `ai-facilitator.js` monta o contexto limitado, valida a resposta estruturada e aplica a transação ao projeto. `http-request.js` normaliza perfis, interpola variáveis declarativas sem eval, executa HTTP e extrai o campo da resposta; é compartilhado pelo navegador e pelo servidor. `scripts/serve.mjs` oferece transporte opcional sem persistir requisições ou workshops. O motor de versão recebe e valida snapshots estruturados; o adapter define acesso, integridade e publicação. Nenhuma camada executa conteúdo importado como código.
 
 ## Modelo portátil
 
 O contrato de projeto continua em `schema_version: "1.0"`: metadados e um grafo com `nodes`, `edges`, `sources`, `evidences`, `proposals`, `answers` e `viewport`. Nós e fontes mantêm IDs estáveis. Relações referem IDs de nós; evidências referem fontes; respostas referem fontes. O importador rejeita IDs duplicados, referências ausentes, versões desconhecidas, coordenadas não finitas e entradas acima dos limites.
 
-Estados do conhecimento continuam separados das decisões sobre propostas. Uma proposta gerada é uma hipótese; aceitar registra `pending`. `validated` depende de ação humana. Origens `ai` e `code` podem aparecer em arquivos portáteis do Studio, mas esta aplicação não contém importador de código nem motor de IA.
+Estados do conhecimento continuam separados das decisões sobre propostas. Uma proposta gerada é uma hipótese; aceitar registra `pending`. `validated` depende de ação humana. Novos cartões criados pela conversa com IA têm origem `ai` e estado `hypothesis` ou `contested`; revisões do mapa existente exigem decisão humana. A origem `code` é preservada na importação, sem importador de código nesta edição.
 
 Importar um projeto para o dashboard cria outra identidade de projeto. Importar um pacote de versões é uma operação distinta: precisa preservar a identidade do repositório e seu histórico para permitir integração segura.
 
 Na sessão nova, a importação do pacote restaura histórico e cópia de trabalho. Na sessão existente do mesmo projeto, salva o rascunho como versão antes de integrar a ponta recebida. Os ramos permanecem no DAG e a integração usa ancestral comum; divergências geram sessão de diferenças. Repositório diferente, histórico sem origem comum e sessão local de diferenças ainda pendente não permitem substituir o estado silenciosamente. Um pacote que já contém diferenças pendentes só pode ser recuperado numa sessão nova; o motor recalcula e valida a sessão e suas escolhas antes de aceitá-la.
 
-O tipo local `aggregate` amplia os 11 tipos do Studio. O validador original rejeita esse valor; portanto projetos contendo agregados, inclusive em propostas, não são compatíveis de volta com o original. Essa limitação da extensão é explícita e não autoriza converter agregados silenciosamente para outro conceito.
+O tipo local `aggregate` amplia os 11 tipos do Studio. Relações também podem ter `source_side` e `target_side` com os valores `top`, `right`, `bottom` ou `left`. O validador original rejeita esse tipo e esses campos locais; a ida e volta exige não utilizá-los. Essa limitação da extensão é explícita e não autoriza converter agregados silenciosamente para outro conceito.
+
+Cartões `context` são áreas delimitadas, transparentes e redimensionáveis, desenhadas atrás dos cartões. Suas dimensões ficam em propriedades do nó. A área organiza a conversa visualmente; estar dentro dela não comprova um bounded context nem atribui ownership. O nome de contexto de cada elemento continua sendo conhecimento explícito do domínio.
+
+A extensão opcional `ai_http` contém `active_id` e até 20 perfis identificados por ID estável. Preserva URL, método, transporte, timeout, linhas de parâmetros/cabeçalhos/variáveis, autenticação, corpo e caminho de resposta. Credenciais são parte explícita do projeto e acompanham exportação, snapshots, restauração e merge. Mudanças independentes se integram por campos; uma credencial alterada de duas formas gera conflito. O Studio estrito não aceita essa extensão; projetos antigos mantêm sua estrutura sem `ai_http` até salvar a configuração. Rascunhos do editor ficam separados do perfil ativo até **Salvar e usar**.
 
 ## Facilitação e evidência
 
-Texto e respostas são preservados como fontes. Cada candidato aponta para trechos dessas fontes e explica o reconhecimento determinístico. O vocabulário lexical é limitado e pode produzir falsos positivos; negação, contexto e causalidade precisam de revisão. Uma resposta anterior é preservada quando o especialista registra outra perspectiva.
+Texto importado e turnos da conversa com IA são preservados como fontes. A extração lexical aponta candidatos para trechos dessas fontes e explica seu reconhecimento determinístico. O vocabulário lexical é limitado e pode produzir falsos positivos; negação, contexto e causalidade precisam de revisão. Uma resposta anterior é preservada quando o especialista registra outra perspectiva.
 
-O reconhecimento sinaliza negação/condição/dúvida como hotspot ou regra em vez de promover automaticamente uma ocorrência positiva. Isso reduz um falso positivo conhecido do original, sem constituir compreensão semântica geral. A entrevista mantém os oito IDs de perguntas do Studio.
+O reconhecimento sinaliza negação/condição/dúvida como hotspot ou regra em vez de promover automaticamente uma ocorrência positiva. Isso reduz um falso positivo conhecido do original, sem constituir compreensão semântica geral.
+
+A Entrevista guiada apresenta as oito perguntas do Studio em uma lista numerada com orientações para iniciantes. É um roteiro de consulta, sem formulário, respostas persistidas, progresso ou criação de propostas. Respostas históricas permanecem no contrato e nos projetos; `answerQuestion` e as funções legadas continuam no core para compatibilidade, sem fluxo de gravação pela UI do roteiro.
+
+O facilitador com IA recebe objetivo, modalidade e um recorte limitado do mapa, das fontes e da conversa. Seu contrato exige resposta, resumo, uma pergunta por vez, candidatos, relações e pedidos de remoção. A aplicação recusa campos desconhecidos, referências ausentes e evidências que não sejam trechos literais de fontes válidas; a própria resposta do modelo não se torna evidência de um fato. Nenhuma pontuação numérica de confiança é inventada.
+
+A aplicação valida o plano novamente contra o mapa atual e faz uma única transação com fontes, resposta e mudanças. Novos cartões entram como hipóteses e preservam as posições existentes. Revisões de elementos existentes viram propostas; remoções viram hotspots de revisão, preservando os elementos originais. Relações geradas ficam identificadas como hipótese de IA. Resposta inválida ou erro de comunicação conserva o rascunho e o projeto. As mensagens e os turnos são persistidos em fontes/respostas do contrato existente, sem campos novos na raiz do projeto.
 
 A exportação de blueprint Markdown cobre objetivo, narrativa por posicionamento visual, eventos, elementos, regras, relatos, candidatos de contexto, rastreabilidade, pendências e próximos passos. Onde o mapa não registra uma informação, o relatório a identifica como ausente. A ordem visual e o vínculo registrado não comprovam causalidade; as relações do schema original não têm uma evidência própria separada.
 
@@ -96,9 +108,11 @@ Recuperação segue esta ordem: reutilizar handle conhecido e autorizado; pedir 
 
 ## Offline e segurança
 
-O service worker conserva arquivos estáticos após primeiro carregamento bem-sucedido; não é o banco de dados. O aplicativo não depende de serviços externos para edição, entrevista ou histórico. Pasta inacessível e ausência de rede não devem eliminar a cópia de trabalho.
+O service worker conserva arquivos estáticos após primeiro carregamento bem-sucedido; não é o banco de dados. O aplicativo não depende de serviços externos para edição, entrevista guiada ou histórico. A conversa com IA precisa do endpoint disponível; o cache não fornece inferência. O transporte pela ponte requer o servidor do aplicativo; o transporte direto requer CORS do endpoint, inclusive no HTML único. Pasta inacessível e ausência de rede não devem eliminar a cópia de trabalho.
 
-Conteúdo do usuário é apresentado como texto. Importações têm validação de schema e integridade. Nenhuma credencial é armazenada em pacotes. O servidor incluído escuta em `127.0.0.1`, aceita GET/HEAD, bloqueia diretórios ocultos, traversal e arquivos que resolvam fora da raiz. Não há sistema de contas, ACL, criptografia de projeto ou administração multiusuário.
+Conteúdo do usuário é apresentado como texto. Importações têm validação de schema e integridade. Configurações HTTP e suas credenciais são armazenadas no navegador e nos pacotes conforme o fluxo de exportação. O contexto do modelo é montado a partir de campos explícitos do domínio e não inclui automaticamente `ai_http`. O servidor incluído escuta em `127.0.0.1`, serve arquivos com GET/HEAD e bloqueia diretórios ocultos, traversal e arquivos que resolvam fora da raiz.
+
+A ponte `POST /api/ai/http` aceita o destino HTTP/HTTPS, cabeçalhos e corpo da requisição configurada pelo usuário, independentemente das variáveis de ambiente legadas. Exige acesso loopback com Host/porta e Origin válidos. Limita tamanho, estrutura, duração, simultaneidade e resposta, cancela pedidos interrompidos, verifica TLS e não segue redirecionamentos. A resposta preserva status, corpo e cabeçalhos do destino para diagnóstico local. `GET /api/ai/config` e `POST /api/ai/chat` mantêm o contrato legado e suas restrições próprias. O endpoint recebe o contexto enviado ao modelo; o mapa não é persistido pelo backend. Configuração, contrato e limites estão em [AI_SETUP.md](AI_SETUP.md). Não há sistema de contas, ACL, criptografia de projeto ou administração multiusuário.
 
 ## Verificação
 
