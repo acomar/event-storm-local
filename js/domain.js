@@ -19,6 +19,7 @@ export const relations = Object.freeze({ before: 'Acontece antes de', triggers: 
 export const origins = Object.freeze({ person: 'Declarado por pessoa', document: 'Documento', code: 'Evidência de código', deterministic: 'Heurística sem IA', ai: 'Sugestão de IA', expert: 'Especialista' });
 export const connectionSides = Object.freeze(['top', 'right', 'bottom', 'left']);
 export const contextDimensions = Object.freeze({ width: 600, height: 360, minWidth: 240, minHeight: 180, maxWidth: 10000, maxHeight: 10000 });
+export const cardDimensions = Object.freeze({ width: 210, height: 146, minWidth: 160, minHeight: 146, maxWidth: 2000, maxHeight: 2000 });
 export const limits = Object.freeze({ nodes: 5000, edges: 15000, sources: 300, evidences: 15000, proposals: 5000, answers: 1000, sourceContent: 100000, extractionContent: 30000 });
 export const uid = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
@@ -89,10 +90,9 @@ function normalizeCard(value, path, timestamp) {
     created_at: date(value.created_at, `${path}.created_at`, timestamp),
     updated_at: date(value.updated_at, `${path}.updated_at`, timestamp)
   };
-  if (card.kind === 'context') {
-    if (card.properties.width !== undefined) numeric(card.properties.width, `${path}.properties.width`, undefined, contextDimensions.minWidth, contextDimensions.maxWidth);
-    if (card.properties.height !== undefined) numeric(card.properties.height, `${path}.properties.height`, undefined, contextDimensions.minHeight, contextDimensions.maxHeight);
-  }
+  const dimensions = card.kind === 'context' ? contextDimensions : cardDimensions;
+  if (card.properties.width !== undefined) numeric(card.properties.width, `${path}.properties.width`, undefined, dimensions.minWidth, dimensions.maxWidth);
+  if (card.properties.height !== undefined) numeric(card.properties.height, `${path}.properties.height`, undefined, dimensions.minHeight, dimensions.maxHeight);
   return card;
 }
 
@@ -115,62 +115,128 @@ export function newProject(name = 'Novo mapa', objective = '', example = false) 
 
 /** Returns a detached normalized copy. Missing optional schema-1.0 fields gain defaults. */
 export function validateProject(value) {
-  fields(value, ['schema_version', 'id', 'name', 'objective', 'modality', 'version', 'graph', 'ai_http', 'created_at', 'updated_at'], 'project');
+  fields(value, ['schema_version', 'id', 'name', 'objective', 'modality', 'version', 'graph', 'primary_map', 'maps', 'ai_http', 'created_at', 'updated_at'], 'project');
   const timestamp = now();
-  const graph = value.graph ?? {};
-  fields(graph, ['nodes', 'edges', 'sources', 'evidences', 'proposals', 'answers', 'viewport'], 'graph');
-  const g = {
-    nodes: list(graph.nodes, 'graph.nodes', limits.nodes, (n, p) => normalizeCard(n, p, timestamp)),
-    edges: list(graph.edges, 'graph.edges', limits.edges, (e, p) => {
-      fields(e, ['id', 'source', 'target', 'relation', 'label', 'source_side', 'target_side'], p);
-      const edge = { id: id(e.id ?? uid(), `${p}.id`), source: id(e.source, `${p}.source`), target: id(e.target, `${p}.target`), relation: choice(e.relation, Object.keys(relations), `${p}.relation`, 'before'), label: string(e.label, `${p}.label`, 200, '') };
-      if (e.source_side !== undefined) edge.source_side = choice(e.source_side, connectionSides, `${p}.source_side`);
-      if (e.target_side !== undefined) edge.target_side = choice(e.target_side, connectionSides, `${p}.target_side`);
-      return edge;
-    }),
-    sources: list(graph.sources, 'graph.sources', limits.sources, (s, p) => {
-      fields(s, ['id', 'name', 'kind', 'content', 'created_at'], p);
-      return { id: id(s.id ?? uid(), `${p}.id`), name: string(s.name, `${p}.name`, 200, undefined, true), kind: choice(s.kind, ['text', 'interview', 'manual', 'example'], `${p}.kind`, 'text'), content: string(s.content, `${p}.content`, limits.sourceContent, ''), created_at: date(s.created_at, `${p}.created_at`, timestamp) };
-    }),
-    evidences: list(graph.evidences, 'graph.evidences', limits.evidences, (e, p) => {
-      fields(e, ['id', 'source_id', 'quote', 'explanation'], p);
-      return { id: id(e.id ?? uid(), `${p}.id`), source_id: id(e.source_id, `${p}.source_id`), quote: string(e.quote, `${p}.quote`, 4000, ''), explanation: string(e.explanation, `${p}.explanation`, 4000, '') };
-    }),
-    proposals: list(graph.proposals, 'graph.proposals', limits.proposals, (proposal, p) => {
-      fields(proposal, ['id', 'node', 'reason', 'decision'], p);
-      return { id: id(proposal.id ?? uid(), `${p}.id`), node: normalizeCard(proposal.node, `${p}.node`, timestamp), reason: string(proposal.reason, `${p}.reason`, 2000, ''), decision: choice(proposal.decision, ['pending', 'accepted', 'rejected'], `${p}.decision`, 'pending') };
-    }),
-    answers: list(graph.answers, 'graph.answers', limits.answers, (a, p) => {
-      fields(a, ['id', 'question_id', 'question', 'answer', 'source_id', 'created_at'], p);
-      return { id: id(a.id ?? uid(), `${p}.id`), question_id: id(a.question_id, `${p}.question_id`), question: string(a.question, `${p}.question`, 1000, ''), answer: string(a.answer, `${p}.answer`, 10000, ''), source_id: id(a.source_id, `${p}.source_id`), created_at: date(a.created_at, `${p}.created_at`, timestamp) };
-    }),
-    viewport: (() => {
-      const v = graph.viewport ?? {};
-      fields(v, ['x', 'y', 'zoom'], 'graph.viewport');
-      return { x: numeric(v.x, 'graph.viewport.x', 0), y: numeric(v.y, 'graph.viewport.y', 0), zoom: numeric(v.zoom, 'graph.viewport.zoom', 0.8, 0.05, 4) };
-    })()
-  };
-  for (const [name, collection] of Object.entries(g)) {
-    if (!Array.isArray(collection)) continue;
-    if (new Set(collection.map(x => x.id)).size !== collection.length) fail(`graph.${name}`, 'IDs duplicados.');
+  const g = normalizeGraph(value.graph, timestamp);
+  let primary, maps;
+  if (value.primary_map !== undefined) {
+    fields(value.primary_map, ['id', 'name'], 'project.primary_map');
+    primary = { id: id(value.primary_map.id, 'project.primary_map.id'), name: string(value.primary_map.name, 'project.primary_map.name', 160, undefined, true) };
   }
-  const nodeIds = new Set(g.nodes.map(n => n.id));
-  const sourceIds = new Set(g.sources.map(s => s.id));
-  const evidenceIds = new Set(g.evidences.map(e => e.id));
-  for (const e of g.edges) if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) fail('graph.edges', 'relação sem cartão correspondente.');
-  for (const e of g.evidences) if (!sourceIds.has(e.source_id)) fail('graph.evidences', 'evidência sem fonte correspondente.');
-  for (const node of [...g.nodes, ...g.proposals.map(p => p.node)]) if (node.evidence_ids.some(e => !evidenceIds.has(e))) fail('graph.nodes', 'cartão sem evidência correspondente.');
-  for (const a of g.answers) if (!sourceIds.has(a.source_id)) fail('graph.answers', 'resposta sem fonte correspondente.');
-  const proposalNodeIds = g.proposals.map(p => p.node.id);
-  if (new Set(proposalNodeIds).size !== proposalNodeIds.length) fail('graph.proposals', 'IDs de cartões candidatos duplicados.');
+  if (value.maps !== undefined) {
+    maps = list(value.maps, 'project.maps', 999, (map, path) => {
+      fields(map, ['id', 'name', 'modality', 'graph'], path);
+      return { id: id(map.id, `${path}.id`), name: string(map.name, `${path}.name`, 160, undefined, true), modality: choice(map.modality, ['big_picture', 'process', 'design'], `${path}.modality`, 'big_picture'), graph: normalizeGraph(map.graph, timestamp, `${path}.graph`) };
+    });
+    if (new Set([primary?.id || 'main', ...maps.map(map => map.id)]).size !== maps.length + 1) fail('project.maps', 'IDs de mapas duplicados.');
+  }
   const version = numeric(value.version, 'project.version', 1, 1, Number.MAX_SAFE_INTEGER);
   if (!Number.isInteger(version)) fail('project.version', 'versão deve ser um inteiro.');
   return {
     schema_version: choice(value.schema_version, ['1.0'], 'project.schema_version', '1.0'),
     id: id(value.id ?? uid(), 'project.id'), name: string(value.name, 'project.name', 160, undefined, true),
     objective: string(value.objective, 'project.objective', 2000, ''), modality: choice(value.modality, ['big_picture', 'process', 'design'], 'project.modality', 'big_picture'),
-    version, graph: g, ...(value.ai_http === undefined ? {} : { ai_http: normalizeAIHTTP(value.ai_http) }), created_at: date(value.created_at, 'project.created_at', timestamp), updated_at: date(value.updated_at, 'project.updated_at', timestamp)
+    version, graph: g, ...(primary ? { primary_map: primary } : {}), ...(maps ? { maps } : {}),
+    ...(value.ai_http === undefined ? {} : { ai_http: normalizeAIHTTP(value.ai_http) }), created_at: date(value.created_at, 'project.created_at', timestamp), updated_at: date(value.updated_at, 'project.updated_at', timestamp)
   };
+}
+
+function normalizeGraph(value, timestamp, path = 'graph') {
+  const graph = value ?? {};
+  fields(graph, ['nodes', 'edges', 'sources', 'evidences', 'proposals', 'answers', 'viewport'], path);
+  const g = {
+    nodes: list(graph.nodes, `${path}.nodes`, limits.nodes, (n, p) => normalizeCard(n, p, timestamp)),
+    edges: list(graph.edges, `${path}.edges`, limits.edges, (e, p) => {
+      fields(e, ['id', 'source', 'target', 'relation', 'label', 'source_side', 'target_side'], p);
+      const edge = { id: id(e.id ?? uid(), `${p}.id`), source: id(e.source, `${p}.source`), target: id(e.target, `${p}.target`), relation: choice(e.relation, Object.keys(relations), `${p}.relation`, 'before'), label: string(e.label, `${p}.label`, 200, '') };
+      if (e.source_side !== undefined) edge.source_side = choice(e.source_side, connectionSides, `${p}.source_side`);
+      if (e.target_side !== undefined) edge.target_side = choice(e.target_side, connectionSides, `${p}.target_side`);
+      return edge;
+    }),
+    sources: list(graph.sources, `${path}.sources`, limits.sources, (s, p) => {
+      fields(s, ['id', 'name', 'kind', 'content', 'created_at'], p);
+      return { id: id(s.id ?? uid(), `${p}.id`), name: string(s.name, `${p}.name`, 200, undefined, true), kind: choice(s.kind, ['text', 'interview', 'manual', 'example'], `${p}.kind`, 'text'), content: string(s.content, `${p}.content`, limits.sourceContent, ''), created_at: date(s.created_at, `${p}.created_at`, timestamp) };
+    }),
+    evidences: list(graph.evidences, `${path}.evidences`, limits.evidences, (e, p) => {
+      fields(e, ['id', 'source_id', 'quote', 'explanation'], p);
+      return { id: id(e.id ?? uid(), `${p}.id`), source_id: id(e.source_id, `${p}.source_id`), quote: string(e.quote, `${p}.quote`, 4000, ''), explanation: string(e.explanation, `${p}.explanation`, 4000, '') };
+    }),
+    proposals: list(graph.proposals, `${path}.proposals`, limits.proposals, (proposal, p) => {
+      fields(proposal, ['id', 'node', 'reason', 'decision'], p);
+      return { id: id(proposal.id ?? uid(), `${p}.id`), node: normalizeCard(proposal.node, `${p}.node`, timestamp), reason: string(proposal.reason, `${p}.reason`, 2000, ''), decision: choice(proposal.decision, ['pending', 'accepted', 'rejected'], `${p}.decision`, 'pending') };
+    }),
+    answers: list(graph.answers, `${path}.answers`, limits.answers, (a, p) => {
+      fields(a, ['id', 'question_id', 'question', 'answer', 'source_id', 'created_at'], p);
+      return { id: id(a.id ?? uid(), `${p}.id`), question_id: id(a.question_id, `${p}.question_id`), question: string(a.question, `${p}.question`, 1000, ''), answer: string(a.answer, `${p}.answer`, 10000, ''), source_id: id(a.source_id, `${p}.source_id`), created_at: date(a.created_at, `${p}.created_at`, timestamp) };
+    }),
+    viewport: (() => {
+      const v = graph.viewport ?? {};
+      fields(v, ['x', 'y', 'zoom'], `${path}.viewport`);
+      return { x: numeric(v.x, `${path}.viewport.x`, 0), y: numeric(v.y, `${path}.viewport.y`, 0), zoom: numeric(v.zoom, `${path}.viewport.zoom`, 0.8, 0.05, 4) };
+    })()
+  };
+  for (const [name, collection] of Object.entries(g)) {
+    if (!Array.isArray(collection)) continue;
+    if (new Set(collection.map(x => x.id)).size !== collection.length) fail(`${path}.${name}`, 'IDs duplicados.');
+  }
+  const nodeIds = new Set(g.nodes.map(n => n.id));
+  const sourceIds = new Set(g.sources.map(s => s.id));
+  const evidenceIds = new Set(g.evidences.map(e => e.id));
+  for (const e of g.edges) if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) fail(`${path}.edges`, 'relação sem cartão correspondente.');
+  for (const e of g.evidences) if (!sourceIds.has(e.source_id)) fail(`${path}.evidences`, 'evidência sem fonte correspondente.');
+  for (const node of [...g.nodes, ...g.proposals.map(p => p.node)]) if (node.evidence_ids.some(e => !evidenceIds.has(e))) fail(`${path}.nodes`, 'cartão sem evidência correspondente.');
+  for (const a of g.answers) if (!sourceIds.has(a.source_id)) fail(`${path}.answers`, 'resposta sem fonte correspondente.');
+  const proposalNodeIds = g.proposals.map(p => p.node.id);
+  if (new Set(proposalNodeIds).size !== proposalNodeIds.length) fail(`${path}.proposals`, 'IDs de cartões candidatos duplicados.');
+  return g;
+}
+
+/** The original graph remains the primary map; optional maps extend legacy exports. */
+export function projectMaps(project) {
+  return [{ id: project.primary_map?.id || 'main', name: project.primary_map?.name || 'Mapa principal', modality: project.modality, graph: project.graph }, ...(project.maps || [])];
+}
+
+export function projectMap(project, mapId) {
+  const map = projectMaps(project).find(map => map.id === mapId);
+  if (!map) fail('map', 'mapa não encontrado.');
+  return map;
+}
+
+/** A single-map input for the facilitator. No other map enters its context. */
+export function mapProject(project, mapId) {
+  const { primary_map, maps, ...scoped } = project;
+  const map = projectMap(project, mapId);
+  return { ...scoped, graph: map.graph, modality: map.modality };
+}
+
+export function updateMap(project, mapId, changes) {
+  const map = projectMap(project, mapId);
+  if (mapId === projectMaps(project)[0].id) {
+    if (changes.name !== undefined) project.primary_map = { id: map.id, name: changes.name };
+    if (changes.graph !== undefined) project.graph = changes.graph;
+    if (changes.modality !== undefined) project.modality = changes.modality;
+  } else Object.assign(map, changes);
+}
+
+export function addMap(project, name) {
+  string(name, 'map.name', 160, undefined, true);
+  if (projectMaps(project).length >= 1000) fail('map', 'no máximo 1000 mapas por projeto.');
+  const map = { id: uid(), name, modality: 'big_picture', graph: newProject().graph };
+  project.primary_map ??= { id: 'main', name: 'Mapa principal' };
+  project.maps ??= [];
+  project.maps.push(map);
+  return map.id;
+}
+
+export function removeMap(project, mapId) {
+  projectMap(project, mapId);
+  if (projectMaps(project).length === 1) fail('map', 'mantenha pelo menos um mapa no projeto.');
+  if (mapId === projectMaps(project)[0].id) {
+    const next = project.maps.shift();
+    project.primary_map = { id: next.id, name: next.name };
+    project.graph = next.graph;
+    project.modality = next.modality;
+  } else project.maps = project.maps.filter(map => map.id !== mapId);
 }
 
 export function importProject(value) {

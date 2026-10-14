@@ -4,7 +4,31 @@ Data: **9 de outubro de 2026**. Ambiente: Windows, Node.js **22.18.0** e navegad
 
 Execução completa inicial de `npm test`, antes das ampliações de IA e contexto: **58 testes, 57 aprovados, 0 falhas e 1 ignorado**. Essa contagem registra a versão inicial, não a suíte atual ampliada.
 
-## Execução atual: versão 1.2.0 e editor HTTP
+## Execução atual: versão 1.3.0, cards e mapas por projeto
+
+Data: **14 de outubro de 2026**. Ambiente: Debian Linux, Node.js **24.19.0** e Chromium **154.0.8037.57**. `npm run standalone`, `npm test` e `git diff --check` foram executados. A suíte registra **122 testes aprovados, zero falhas e zero ignorados**. O caso de symlink também foi executado neste ambiente Linux. Essa contagem inclui nove casos em `tests/project-maps.test.mjs`, três novos casos de canvas e validação de dimensões dos cards.
+
+Os testes de mapas cobrem importação do formato anterior sem alteração, isolamento dos grafos e referências, modalidade e viewport por mapa, promoção do principal preservando IDs, cópias independentes, JSON, pacote de versões, recuperação de sessão, restauração e merge de alterações entre mapas. Referências quebradas por operações concorrentes exigem decisão no grafo afetado; excluir o principal enquanto outro ramo edita mapas exige escolha de uma coleção completa, inclusive após exportar e recuperar a sessão de conflito.
+
+Verificação de interface com Playwright em Chromium, usando dados fictícios e uma origem isolada:
+
+| Verificação | Resultado observado |
+|---|---|
+| Descrição no card | Texto visível, quebras de linha preservadas e `<texto>` exibido como texto literal |
+| Delete após editar | Clique transfere o foco ao card; Delete remove a seleção; Ctrl+Z recupera o card |
+| Delete em campo de texto | Preserva o card e continua editando o campo |
+| Redimensionamento | Arraste salva largura/altura; foco no canto e seta altera a largura em 20 pixels; valores aparecem no JSON |
+| Mapas independentes | Criação e troca preservam 11 cards no principal e um card no mapa de entrega; modalidades distintas preservadas |
+| Rascunhos da IA | Texto diferente recuperado para cada mapa |
+| Reload | Projeto, mapa selecionado e cards recuperados |
+| Gerenciamento | Renomear, duplicar, excluir, desfazer a exclusão e promover o principal preservam os dados esperados |
+| Exportar e importar JSON | Todos os mapas preservados; projeto importado recebe outra identidade |
+| IA no mapa ativo | Resposta controlada acrescenta um evento apenas no mapa novo; os outros grafos ficam idênticos e seus cards não aparecem na requisição |
+| HTML único por HTTP | Delete e criação de outro mapa funcionam no arquivo regenerado |
+
+Nenhum erro JavaScript foi observado nos fluxos verificados. A resposta de IA foi simulada; não houve avaliação de inferência real. A tentativa de abrir `standalone.html` por `file://` foi bloqueada pela política administrativa do Chromium deste ambiente (`ERR_BLOCKED_BY_ADMINISTRATOR`); a evidência do arquivo único continua sendo por HTTP. Não foi usado um resultado remoto de CI como evidência nesta execução.
+
+## Execução anterior: versão 1.2.0 e editor HTTP
 
 `npm run standalone` e `npm test` registraram **109 testes, 108 aprovados, 0 falhas e 1 ignorado**, incluindo o roteiro simplificado, os oito módulos do HTML único e 12 testes novos em `tests/http-request.test.mjs`. O ignorado continua sendo o symlink externo no Windows. As contagens 58/97 abaixo são registros históricos.
 

@@ -47,6 +47,18 @@ Para ativar a conversa com IA, disponibilize um modelo ou workflow HTTP e abra *
 
 Salvar no dispositivo e sincronizar são ações diferentes. O autosave protege a cópia de trabalho local; **Salvar versão** cria um marco no histórico. A restauração cria uma nova versão, preservando as anteriores.
 
+### Cards e observações
+
+Arraste o canto inferior direito de qualquer card para alterar sua largura e altura. Também é possível preencher **Largura** e **Altura** em seus detalhes, ou focar o canto e usar as setas (Shift aumenta o passo). As relações, a seleção, o ajuste do mapa e o minimapa acompanham as dimensões salvas. **Descrição / observação** aparece no próprio card; textos longos podem ser rolados ou lidos ao ampliar o card.
+
+Clique no card e pressione **Delete** para apagar a seleção e suas relações. Shift permite selecionar vários cards. **Ctrl/Cmd+Z** desfaz, e **Ctrl/Cmd+Shift+Z** refaz. Enquanto um campo de texto está sendo editado, Delete continua editando o texto.
+
+### Vários mapas por projeto
+
+Use **Novo mapa** para criar um mapa dentro do projeto e o seletor **Mapa de eventos** para alternar entre eles. **Gerenciar mapas** permite abrir, renomear, duplicar e excluir mapas. Cada mapa preserva seus próprios cards, relações, fontes, evidências, propostas, conversa do facilitador, profundidade do workshop e viewport. A configuração HTTP da IA é compartilhada pelo projeto, e a IA recebe somente o mapa ativo.
+
+Projetos antigos aparecem com um **Mapa principal**, preservando seus dados. O projeto sempre mantém pelo menos um mapa; ao excluir o principal, outro mapa assume essa posição com sua identidade preservada. Exclusões podem ser desfeitas ou recuperadas pelo histórico. JSON, backup com histórico e sincronização incluem todos os mapas; o blueprint é exportado para o mapa ativo. O limite de validação é de 1000 mapas por projeto, com os limites de elementos aplicados a cada mapa.
+
 ## Versões e compartilhamento
 
 O motor compara JSON por campos e IDs estáveis. Mudanças independentes podem ser combinadas; mudanças diferentes no mesmo campo, remoção versus edição e ordens incompatíveis exigem decisão. A interface apresenta **Sua alteração**, **Alteração compartilhada** e o resultado, sem exigir edição de JSON.
@@ -68,6 +80,8 @@ O service worker conserva os arquivos estáticos depois do primeiro carregamento
 A importação aceita o contrato JSON `schema_version: "1.0"` do Studio: nós, relações, fontes, evidências, propostas, respostas e viewport. Importar como novo projeto cria identidade de projeto nova e mantém os IDs internos. Esquemas desconhecidos, referências quebradas e valores inválidos são rejeitados.
 
 Há extensões locais com cartões **Agregado**, lados de conexão `source_side`/`target_side` e configuração opcional `ai_http`. O validador estrito do Studio original recusa esses valores/campos. Para voltar ao Studio, use somente os 11 tipos originais, inclusive nas propostas, relações sem esses campos locais e um projeto sem `ai_http`. Projetos antigos continuam sem essa extensão até salvar a configuração. A extensão não deve ser confundida com compatibilidade integral de ida e volta.
+
+O suporte a vários mapas adiciona os campos locais opcionais `primary_map` (ID e nome do mapa principal) e `maps` (mapas adicionais com ID, nome, modalidade e grafo). O grafo principal continua em `graph`; o JSON nunca duplica o mesmo grafo entre campos. Projetos antigos sem esses campos continuam sendo importados e validados sem alteração do formato. O Studio original não aceita essa extensão de múltiplos mapas. Dimensões dos cards são propriedades opcionais `width` e `height`, incluídas no autosave, nos backups e nas versões.
 
 A UI foi reconstruída sem React/XYFlow, mantendo os fluxos centrais e adicionando histórico persistente, blueprint, áreas de contexto redimensionáveis e conexões pelos quatro lados dos cartões. A [matriz de paridade](docs/PARITY.md) explicita diferenças. A IA depende de um modelo externo configurado; não há análise de repositórios, importação PDF/DOCX/XLSX, contas ou serviço remoto de colaboração.
 

@@ -55,6 +55,14 @@ test('context dimensions remain optional schema properties with validated finite
   context.properties.width=860;context.properties.height=10001;assert.throws(()=>validateProject(project),/10000/);
 });
 
+test('ordinary card dimensions round-trip and invalid dimensions are rejected', () => {
+  const project=newProject('Cards'),node=newCard('event');project.graph.nodes.push(node);
+  node.properties={width:460,height:280};assert.deepEqual(validateProject(project).graph.nodes[0].properties,node.properties);
+  node.properties.width=-1;assert.throws(()=>validateProject(project),/properties.width/);
+  node.properties.width=460;node.properties.height='280';assert.throws(()=>validateProject(project),/properties.height/);
+  node.properties.height=2001;assert.throws(()=>validateProject(project),/2000/);
+});
+
 test('unknown schema, extra fields, corrupt values and excessive input are rejected', () => {
   const project = newProject('Teste');
   assert.throws(() => validateProject({ ...project, schema_version: '2.0' }), /schema_version/);
