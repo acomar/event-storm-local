@@ -25,14 +25,24 @@ export async function hash(value) {
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 const pathLabel = path => '/' + path.map(token => typeof token === 'object' ? token.id : token).join('/');
-const ignored = path =>
-  (path.length === 1 && ['updated_at', 'version'].includes(path[0])) ||
-  (path.at(-1) === 'updated_at' && path[0] === 'graph' &&
-    ((path.length === 4 && path[1] === 'nodes') || (path.length === 5 && path[1] === 'proposals' && path[3] === 'node'))) ||
-  (path[0] === 'graph' && path[1] === 'viewport');
+const ignored = path => {
+  if (path.length === 1 && ['updated_at', 'version'].includes(path[0])) return true;
+  const graphIndex = path[0] === 'graph' ? 0 : path[0] === 'maps' && path[2] === 'graph' ? 2 : -1;
+  if (graphIndex < 0) return false;
+  const graphPath = path.slice(graphIndex);
+  return graphPath[1] === 'viewport' || (graphPath.at(-1) === 'updated_at' &&
+    ((graphPath.length === 4 && graphPath[1] === 'nodes') || (graphPath.length === 5 && graphPath[1] === 'proposals' && graphPath[3] === 'node')));
+};
 const idArray = values => values.flat().every(item => plain(item) && typeof item.id === 'string');
 const setArray = path => String(path.at(-1)).endsWith('_ids');
 const normalized = value => value === missing || value === undefined ? null : clone(value);
+const mapState = project => ({ graph: project.graph, modality: project.modality, ...(project.primary_map === undefined ? {} : { primary_map: project.primary_map }), ...(project.maps === undefined ? {} : { maps: project.maps }) });
+function replaceMapState(project, value) {
+  for (const key of ['graph', 'modality', 'primary_map', 'maps']) {
+    if (Object.hasOwn(value, key)) project[key] = clone(value[key]);
+    else delete project[key];
+  }
+}
 
 /** Strict supported project schema. Unknown schema versions never synchronize silently. */
 export function validateProject(project) {
@@ -161,15 +171,35 @@ export function threeWayMerge(base, local, remote) {
     return conflict(a, l, r, path, 'value_changed_both');
   }
   const value = walk(base, local, remote, []);
-  if (value?.schema_version === '1.0') {
-    try { validateProject(value); }
+  const primaryId = project => project?.primary_map?.id || 'main';
+  if (value?.schema_version === '1.0' && primaryId(local) !== primaryId(remote) &&
+      semanticDiff(mapState(base), mapState(local)).length && semanticDiff(mapState(base), mapState(remote)).length) {
+    // Promotion moves a graph between containers. Keep the map collection intact
+    // when another branch edits it, instead of merging unrelated primary graphs.
+    for (let i = conflicts.length - 1; i >= 0; i--) if (['graph', 'modality', 'primary_map', 'maps'].includes(conflicts[i].tokens[0])) conflicts.splice(i, 1);
+    const replacement = conflict(mapState(base), mapState(local), mapState(remote), ['maps'], 'map_structure_conflict');
+    replaceMapState(value, replacement);
+    conflicts.at(-1).context = { scope: 'project_maps', explanation: 'Um mapa principal foi excluído enquanto os mapas eram alterados em outro ramo. Escolha a coleção completa que deve ser preservada.' };
+    conflicts.forEach((item, index) => item.conflictId = `conflict-${index + 1}`);
+  }
+  if (value?.schema_version === '1.0') for (let attempt = 0; attempt <= (value.maps?.length || 0) + 1; attempt++) {
+    try { validateProject(value); break; }
     catch (error) {
       // Valid inputs can jointly violate domain references (e.g. node deletion vs new edge).
       // Retain the three full graphs for an explicit structural decision; never prune data silently.
       if (/sem .*correspondente|candidatos duplicados/.test(error.message)) {
-        conflicts.splice(0, conflicts.length);
-        value.graph = conflict(base.graph, local.graph, remote.graph, ['graph'], 'structural_conflict');
-        conflicts[0].context = { message: error.message, scope: 'graph', explanation: 'As operações concorrentes alteram referências entre entidades. A escolha preserva um quadro completo e válido.' };
+        const mapIndex = /maps\[(\d+)\]\.graph/.exec(error.message)?.[1];
+        const mapId = mapIndex === undefined ? null : value.maps[Number(mapIndex)].id;
+        const tokens = mapId ? ['maps', { id: mapId }, 'graph'] : ['graph'];
+        const prefix = pathLabel(tokens);
+        for (let i = conflicts.length - 1; i >= 0; i--) if (conflicts[i].path === prefix || conflicts[i].path.startsWith(prefix + '/')) conflicts.splice(i, 1);
+        const graph = project => mapId ? project.maps?.find(map => map.id === mapId)?.graph ?? missing : project.graph;
+        const replacement = conflict(graph(base), graph(local), graph(remote), tokens, 'structural_conflict');
+        if (mapId) value.maps[Number(mapIndex)].graph = replacement;
+        else value.graph = replacement;
+        conflicts.at(-1).context = { message: error.message, scope: 'graph', explanation: 'As operações concorrentes alteram referências entre entidades. A escolha preserva um quadro completo e válido.' };
+        // IDs remain unique even when a replaced graph removed earlier conflicts.
+        conflicts.forEach((item, index) => item.conflictId = `conflict-${index + 1}`);
       } else throw error;
     }
   }
@@ -299,6 +329,10 @@ export async function verifyObject(object, expectedId = object?.id) {
 function applyConflict(project, conflict, value, remove = false) {
   const tokens = conflict.tokens;
   if (!Array.isArray(tokens) || !tokens.length || tokens.some(token => typeof token === 'string' && ['__proto__', 'constructor', 'prototype'].includes(token))) throw new VersionError('conflict', 'Caminho de resolução inválido.');
+  if (conflict.type === 'map_structure_conflict') {
+    if (remove || !plain(value) || Object.keys(value).some(key => !['graph', 'modality', 'primary_map', 'maps'].includes(key))) throw new VersionError('conflict', 'A coleção de mapas escolhida é inválida.');
+    replaceMapState(project, value);return;
+  }
   let target = project;
   for (const token of tokens.slice(0, -1)) {
     if (typeof token === 'object') target = target.find(item => item.id === token.id);

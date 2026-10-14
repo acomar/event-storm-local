@@ -1,4 +1,4 @@
-const CACHE='event-storm-local-v4-http';
+const CACHE='event-storm-local-v5-maps';
 const ASSETS=['./','./index.html','./styles.css','./icon.svg','./manifest.webmanifest','./js/app.js','./js/ui.js','./js/canvas.js','./js/domain.js','./js/facilitator.js','./js/ai-facilitator.js','./js/http-request.js','./js/version-control.js'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE&&key.startsWith('event-storm-local-')).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));});

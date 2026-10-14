@@ -8,12 +8,12 @@ const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const moduleNames = Object.freeze(['http-request.js', 'domain.js', 'ui.js', 'facilitator.js', 'ai-facilitator.js', 'version-control.js', 'canvas.js', 'app.js']);
 const expectedExports = {
   'http-request.js': ['httpPresets', 'newHTTPRequest', 'normalizeHTTPRequest', 'normalizeAIHTTP', 'readHTTPPath', 'normalizeHTTPWireRequest', 'buildHTTPRequest', 'extractHTTPResponse', 'executeHTTPWireRequest', 'executeHTTPRequest'],
-  'domain.js': ['kinds', 'statuses', 'relations', 'origins', 'connectionSides', 'contextDimensions', 'limits', 'uid', 'now', 'newCard', 'newProject', 'validateProject', 'importProject', 'exampleProject'],
+  'domain.js': ['kinds', 'statuses', 'relations', 'origins', 'connectionSides', 'contextDimensions', 'cardDimensions', 'limits', 'uid', 'now', 'newCard', 'newProject', 'validateProject', 'projectMaps', 'projectMap', 'mapProject', 'updateMap', 'addMap', 'removeMap', 'importProject', 'exampleProject'],
   'ui.js': ['esc', 'icon', 'button', 'iconButton', 'logo', 'date', 'options', 'download'],
   'facilitator.js': ['questions', 'nextQuestion', 'extractContent', 'answerQuestion', 'inspectProject', 'exportBlueprint'],
   'ai-facilitator.js': ['facilitatorSystemPrompt', 'responseSchema', 'buildMessages', 'parseFacilitatorResponse', 'applyFacilitatorPlan', 'conversationFromProject'],
   'version-control.js': ['VersionError', 'canonicalJSON', 'hash', 'validateProject', 'migrateProject', 'semanticDiff', 'threeWayMerge', 'LocalStore', 'MemoryRepositoryAdapter', 'verifyObject', 'VersionEngine', 'FolderRepositoryAdapter'],
-  'canvas.js': ['Board', 'normalizeContextSize', 'nodeBounds', 'edgeAnchors', 'edgeCurve'],
+  'canvas.js': ['Board', 'normalizeContextSize', 'normalizeCardSize', 'nodeBounds', 'edgeAnchors', 'edgeCurve'],
   'app.js': []
 };
 

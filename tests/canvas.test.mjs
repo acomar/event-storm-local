@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Board, nodeBounds, normalizeContextSize, edgeAnchors, edgeCurve } from '../js/canvas.js';
+import { Board, nodeBounds, normalizeContextSize, normalizeCardSize, edgeAnchors, edgeCurve } from '../js/canvas.js';
 import { connectionSides } from '../js/domain.js';
 import { readFile } from 'node:fs/promises';
 
@@ -105,6 +105,38 @@ test('context resize normalizes invalid, too small and excessive dimensions', ()
   assert.deepEqual(normalizeContextSize({width:701.5,height:422.2}),{width:702,height:422});
 });
 
+test('ordinary card dimensions control edge anchors and inferred context boundaries', () => {
+  const card={id:'a',kind:'event',name:'Pedido Recebido',context:'Compras',position:{x:400,y:300},properties:{width:500,height:350}};
+  assert.deepEqual(nodeBounds(card),{x:400,y:300,width:500,height:350});
+  const anchors=edgeAnchors({source_side:'bottom',target_side:'left'},card,{position:{x:1000,y:0}});
+  assert.deepEqual(anchors.source,{x:650,y:650,side:'bottom'});
+  const context={id:'context',kind:'context',name:'Compras',position:{x:0,y:0},properties:{}};
+  assert.deepEqual(nodeBounds(context,[card]),{x:364,y:236,width:600,height:450});
+  assert.deepEqual(normalizeCardSize({width:-1,height:Infinity}),{width:160,height:146});
+  assert.deepEqual(normalizeCardSize({width:99999,height:99999}),{width:2000,height:2000});
+});
+
+test('ordinary card resize respects zoom and commits once; cancellation does not save', t => {
+  const g=gesture(t,['a']);let resized=null;
+  g.board.graph.nodes[0].kind='event';g.board.graph.nodes[0].properties={};
+  g.board.camera.zoom=.5;g.board.api.resize=(id,size)=>resized={id,...size};g.board.announce=()=>{};
+  g.board.resize({...g.event('a',false,10,10),stopPropagation(){}},'a');
+  g.handlers.get('pointermove')({clientX:60,clientY:60});
+  assert.equal(resized,null);g.handlers.get('pointerup')();
+  assert.deepEqual(resized,{id:'a',width:310,height:246});
+  g.board.update=()=>{};resized=null;
+  g.board.resize({...g.event('a',false,10,10),stopPropagation(){}},'a');
+  g.handlers.get('pointermove')({clientX:100,clientY:100});g.handlers.get('pointercancel')();
+  assert.equal(resized,null);assert.equal(g.handlers.size,0);
+});
+
+test('selecting a card explicitly takes focus from a text field so Delete reaches the map', t => {
+  const g=gesture(t,[]);let focused=false;
+  const event=g.event('b'),card=event.target.closest('.sticky');card.focus=()=>focused=true;
+  g.board.down(event);g.handlers.get('pointerup')();
+  assert.equal(focused,true);assert.deepEqual([...g.selection()],['b']);
+});
+
 test('context resize commits once on release and preserves the starting position', t=>{
   const g=gesture(t,['a']);let resized=null;g.board.graph.nodes[0].kind='context';g.board.graph.nodes[0].properties={width:600,height:360};
   g.board.api.resize=(id,size)=>resized={id,...size};g.board.announce=()=>{};
@@ -153,7 +185,7 @@ test('keyboard can start connections on all four sides and resize context with a
   const board=new Board(el,api),keydown=handlers.get('keydown')[0];
   for(const side of connectionSides){const handle={dataset:{side},closest:()=>({dataset:{id:'ctx'}})};keydown({target:{closest:selector=>selector==='.handle'?handle:null},key:'Enter',preventDefault(){},stopPropagation(){}});}
   assert.deepEqual(starts,connectionSides.map(side=>['ctx',side]));
-  const resize={closest:()=>({dataset:{id:'ctx'}})},event=(key,shiftKey=false)=>({target:{closest:selector=>selector==='.context-resize'?resize:null},key,shiftKey,preventDefault(){},stopPropagation(){}});
+  const resize={closest:()=>({dataset:{id:'ctx'}})},event=(key,shiftKey=false)=>({target:{closest:selector=>selector==='.node-resize'?resize:null},key,shiftKey,preventDefault(){},stopPropagation(){}});
   keydown(event('ArrowRight'));keydown(event('ArrowDown',true));assert.deepEqual(resizes,[{id:'ctx',width:620,height:360},{id:'ctx',width:620,height:460}]);
   assert.match(announcements.textContent,/620 por 460/);board.destroy();
 });

@@ -1,24 +1,26 @@
-import {kinds,statuses,relations,connectionSides,contextDimensions} from './domain.js';
+import {kinds,statuses,relations,connectionSides,contextDimensions,cardDimensions} from './domain.js';
 import {esc,icon,iconButton} from './ui.js';
 
-const W=210,H=146;
 const sideNames={top:'superior',right:'direito',bottom:'inferior',left:'esquerdo'};
 const normals={top:{x:0,y:-1},right:{x:1,y:0},bottom:{x:0,y:1},left:{x:-1,y:0}};
-export function normalizeContextSize(size={}) {
+function normalizeSize(size,dimensions) {
   const finite=(value,fallback)=>typeof value==='number'&&Number.isFinite(value)?value:fallback;
-  return {width:Math.round(Math.min(contextDimensions.maxWidth,Math.max(contextDimensions.minWidth,finite(size.width,contextDimensions.width)))),height:Math.round(Math.min(contextDimensions.maxHeight,Math.max(contextDimensions.minHeight,finite(size.height,contextDimensions.height))))};
+  return {width:Math.round(Math.min(dimensions.maxWidth,Math.max(dimensions.minWidth,finite(size.width,dimensions.width)))),height:Math.round(Math.min(dimensions.maxHeight,Math.max(dimensions.minHeight,finite(size.height,dimensions.height))))};
 }
+export function normalizeContextSize(size={}) { return normalizeSize(size,contextDimensions); }
+export function normalizeCardSize(size={}) { return normalizeSize(size,cardDimensions); }
+const nodeSize=(node,size)=>node?.kind==='context'?normalizeContextSize(size):normalizeCardSize(size);
 export function nodeBounds(node,nodes=[]) {
   if(!node)return null;
   if(!node.position&&Number.isFinite(node.width)&&Number.isFinite(node.height))return {...node};
   const x=node.position.x,y=node.position.y;
-  if(node.kind!=='context')return {x,y,width:W,height:H};
+  if(node.kind!=='context')return {x,y,...normalizeCardSize(node.properties)};
   const properties=node.properties||{},size=normalizeContextSize(properties);
   if(properties.width!==undefined||properties.height!==undefined)return {x,y,...size};
   const members=nodes.filter(item=>item.id!==node.id&&item.kind!=='context'&&item.context?.trim()&&item.context.trim().toLocaleLowerCase('pt-BR')===node.name?.trim().toLocaleLowerCase('pt-BR'));
   if(!members.length)return {x,y,...size};
   const left=Math.min(...members.map(item=>item.position.x))-36,top=Math.min(...members.map(item=>item.position.y))-64;
-  const right=Math.max(...members.map(item=>item.position.x+W))+36,bottom=Math.max(...members.map(item=>item.position.y+H))+36;
+  const right=Math.max(...members.map(item=>item.position.x+normalizeCardSize(item.properties).width))+36,bottom=Math.max(...members.map(item=>item.position.y+normalizeCardSize(item.properties).height))+36;
   return {x:left,y:top,...normalizeContextSize({width:Math.max(size.width,right-left),height:Math.max(size.height,bottom-top)})};
 }
 export function edgeAnchors(edge,source,target,nodes=[]) {
@@ -45,17 +47,17 @@ export class Board {
     this.el.addEventListener('pointerdown',e=>this.down(e),opts);
     this.el.addEventListener('dblclick',e=>{if(this.api.locked())return;if(e.target.closest('.sticky')){e.preventDefault();this.inline(e.target.closest('.sticky').dataset.id);}else if(!e.target.closest('button,.minimap'))this.api.add('event',this.point(e));},opts);
     this.el.addEventListener('contextmenu',e=>{e.preventDefault();const card=e.target.closest('.sticky');if(card)this.api.menu(card.dataset.id,e.clientX,e.clientY);},opts);
-    this.el.addEventListener('wheel',e=>{if(this.api.locked()||e.target.closest('textarea'))return;e.preventDefault();if(e.shiftKey){this.camera.x-=e.deltaY;this.camera.y-=e.deltaX;this.cameraChanged();}else this.zoom(Math.exp(-e.deltaY*.0015),e.clientX,e.clientY);},{...opts,passive:false});
+    this.el.addEventListener('wheel',e=>{if(this.api.locked()||e.target.closest('textarea,.sticky-description'))return;e.preventDefault();if(e.shiftKey){this.camera.x-=e.deltaY;this.camera.y-=e.deltaX;this.cameraChanged();}else this.zoom(Math.exp(-e.deltaY*.0015),e.clientX,e.clientY);},{...opts,passive:false});
     this.el.addEventListener('click',e=>{const a=e.target.closest('[data-action]')?.dataset.action;if(a==='zoom-in')this.zoom(1.2);if(a==='zoom-out')this.zoom(1/1.2);if(a==='fit')this.fit();if(a==='grid'){this.grid=!this.grid;this.el.classList.toggle('no-grid',!this.grid);e.target.closest('button').setAttribute('aria-pressed',String(this.grid));}if(e.target.closest('.minimap'))this.fit();const edge=e.target.closest('[data-edge]');if(edge)this.api.edge(edge.dataset.edge);},opts);
     this.el.querySelector('.minimap').addEventListener('keydown',e=>{if(e.key==='Enter')this.fit()},opts);
     this.el.addEventListener('keydown',e=>{
-      const resize=e.target.closest('.context-resize');
+      const resize=e.target.closest('.node-resize');
       if(resize&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter',' '].includes(e.key)){
         e.preventDefault();e.stopPropagation();if(this.api.locked())return;
         const id=resize.closest('.sticky').dataset.id,bounds=this.bounds(id),step=e.shiftKey?100:20;
         if(['Enter',' '].includes(e.key)){this.announce('Use as setas para redimensionar. Shift aumenta o passo para 100 pixels.');return;}
-        const size=normalizeContextSize({width:bounds.width+(e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0),height:bounds.height+(e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0)});
-        this.api.resize(id,size);this.cardElement(id)?.querySelector('.context-resize')?.focus();this.announce(`Contexto com ${size.width} por ${size.height} pixels.`);return;
+        const size=nodeSize(this.graph.nodes.find(n=>n.id===id),{width:bounds.width+(e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0),height:bounds.height+(e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0)});
+        this.api.resize(id,size);this.cardElement(id)?.querySelector('.node-resize')?.focus();this.announce(`Elemento com ${size.width} por ${size.height} pixels.`);return;
       }
       const edge=e.target.closest('[data-edge]');
       if(edge&&['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();this.api.edge(edge.dataset.edge);return;}
@@ -70,8 +72,8 @@ export class Board {
   update(){
     this.camera={...this.graph.viewport};if(!Number.isFinite(this.camera.zoom))this.camera={x:40,y:80,zoom:.75};
     const nodes=this.graph.nodes.filter(this.api.visible);const selected=this.api.selection();
-    this.cards.innerHTML=nodes.filter(n=>n.kind!=='context').map(n=>`<article class="sticky ${esc(n.kind)} ${selected.has(n.id)?'chosen':''}" data-id="${esc(n.id)}" style="left:${n.position.x}px;top:${n.position.y}px;--sticky:${kinds[n.kind].color}" tabindex="0" role="option" aria-label="${esc(kinds[n.kind].label)}: ${esc(n.name)}" aria-selected="${selected.has(n.id)}"><div class="sticky-type">${esc(kinds[n.kind].label)}<span>${n.properties.pivotal?'★':''}</span></div><div class="sticky-name">${esc(n.name)}</div><div class="sticky-footer"><span>○ ${esc(statuses[n.status])}</span><span>${n.evidence_ids.length?`${n.evidence_ids.length} fonte${n.evidence_ids.length>1?'s':''}`:'Manual'}</span></div>${handles(n)}</article>`).join('');
-    this.contexts.innerHTML=nodes.filter(n=>n.kind==='context').map(n=>{const bounds=nodeBounds(n,this.graph.nodes);return `<article class="sticky context ${selected.has(n.id)?'chosen':''}" data-id="${esc(n.id)}" style="left:${bounds.x}px;top:${bounds.y}px;width:${bounds.width}px;height:${bounds.height}px;--sticky:${kinds.context.color}" tabindex="0" role="option" aria-label="Contexto: ${esc(n.name)}" aria-selected="${selected.has(n.id)}"><div class="context-title"><div class="sticky-type">Contexto</div><div class="sticky-name">${esc(n.name)}</div></div>${connectionSides.map(side=>`<span class="context-grip ${side}" aria-hidden="true"></span>`).join('')}${handles(n)}<button class="context-resize" aria-label="Redimensionar contexto ${esc(n.name)}. Use as setas; Shift aumenta o passo." title="Arraste para redimensionar; use as setas pelo teclado">${icon('zoom',12)}</button></article>`;}).join('');
+    this.cards.innerHTML=nodes.filter(n=>n.kind!=='context').map(n=>`<article class="sticky ${esc(n.kind)} ${selected.has(n.id)?'chosen':''}" data-id="${esc(n.id)}" style="left:${n.position.x}px;top:${n.position.y}px;width:${nodeBounds(n).width}px;height:${nodeBounds(n).height}px;--sticky:${kinds[n.kind].color}" tabindex="0" role="option" aria-label="${esc(kinds[n.kind].label)}: ${esc(n.name)}" aria-selected="${selected.has(n.id)}"><div class="sticky-type">${esc(kinds[n.kind].label)}<span>${n.properties.pivotal?'★':''}</span></div><div class="sticky-name">${esc(n.name)}</div>${n.description?`<div class="sticky-description" title="${esc(n.description)}">${esc(n.description)}</div>`:''}<div class="sticky-footer"><span>○ ${esc(statuses[n.status])}</span><span>${n.evidence_ids.length?`${n.evidence_ids.length} fonte${n.evidence_ids.length>1?'s':''}`:'Manual'}</span></div>${handles(n)}<button class="node-resize card-resize" aria-label="Redimensionar ${esc(n.name)}. Use as setas; Shift aumenta o passo." title="Arraste para redimensionar; use as setas pelo teclado">${icon('zoom',12)}</button></article>`).join('');
+    this.contexts.innerHTML=nodes.filter(n=>n.kind==='context').map(n=>{const bounds=nodeBounds(n,this.graph.nodes);return `<article class="sticky context ${selected.has(n.id)?'chosen':''}" data-id="${esc(n.id)}" style="left:${bounds.x}px;top:${bounds.y}px;width:${bounds.width}px;height:${bounds.height}px;--sticky:${kinds.context.color}" tabindex="0" role="option" aria-label="Contexto: ${esc(n.name)}" aria-selected="${selected.has(n.id)}"><div class="context-title"><div class="sticky-type">Contexto</div><div class="sticky-name">${esc(n.name)}</div>${n.description?`<div class="sticky-description" title="${esc(n.description)}">${esc(n.description)}</div>`:''}</div>${connectionSides.map(side=>`<span class="context-grip ${side}" aria-hidden="true"></span>`).join('')}${handles(n)}<button class="node-resize context-resize" aria-label="Redimensionar contexto ${esc(n.name)}. Use as setas; Shift aumenta o passo." title="Arraste para redimensionar; use as setas pelo teclado">${icon('zoom',12)}</button></article>`;}).join('');
     this.el.querySelector('.empty-canvas').hidden=this.graph.nodes.length>0;
     this.el.querySelector('.board-count').textContent=`${this.graph.nodes.length} elementos · ${this.graph.edges.length} relações`;
     this.drawEdges();this.transform();this.mini(nodes);
@@ -89,12 +91,13 @@ export class Board {
   announce(message){const target=this.el.querySelector('.board-announcement');if(target)target.textContent=message;}
   down(e){
     if(e.target.closest('.board-controls,.minimap,textarea,[data-edge]'))return;
-    const card=e.target.closest('.sticky'),handle=e.target.closest('.handle'),resize=e.target.closest('.context-resize');
+    const card=e.target.closest('.sticky'),handle=e.target.closest('.handle'),resize=e.target.closest('.node-resize');
     if(this.api.locked()){if(card&&!handle&&!resize)this.api.select(card.dataset.id,e.shiftKey,true);return;}
     if(e.button===2&&card)return;
     if(resize&&e.button===0){this.resize(e,card.dataset.id);return;}
     if(handle&&e.button===0){this.connect(e,card.dataset.id,handle.dataset.side);return;}
     if(card&&e.button===0){
+      card.focus?.({preventScroll:true});
       const id=card.dataset.id;if(e.shiftKey)this.api.select(id,true,false);else if(!this.api.selection().has(id))this.api.select(id,false,false);
       const ids=[...this.api.selection()],start={x:e.clientX,y:e.clientY},positions=ids.map(id=>{const n=this.graph.nodes.find(item=>item.id===id),bounds=n.kind==='context'?this.bounds(id):null;return {id,...this.coords(id),...(bounds?{width:bounds.width,height:bounds.height}:{})};});let moved=false;
       const move=ev=>{const dx=(ev.clientX-start.x)/this.camera.zoom,dy=(ev.clientY-start.y)/this.camera.zoom;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;for(const p of positions){const d=this.cardElement(p.id);if(d){d.style.left=`${this.grid?Math.round((p.x+dx)/20)*20:p.x+dx}px`;d.style.top=`${this.grid?Math.round((p.y+dy)/20)*20:p.y+dy}px`;}}this.drawEdges();};
@@ -105,10 +108,10 @@ export class Board {
     const start={x:e.clientX,y:e.clientY,cx:this.camera.x,cy:this.camera.y};let moved=false;this.el.classList.add('panning');const move=ev=>{const dx=ev.clientX-start.x,dy=ev.clientY-start.y;moved ||= Math.abs(dx)+Math.abs(dy)>4;this.camera.x=start.cx+dx;this.camera.y=start.cy+dy;this.transform();};const up=()=>{window.removeEventListener('pointermove',move);this.el.classList.remove('panning');if(moved)this.cameraChanged();else this.api.select(null,false,true);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});e.preventDefault();
   }
   resize(e,id){
-    if(this.api.locked())return;const bounds=this.bounds(id),element=this.cardElement(id),start={x:e.clientX,y:e.clientY};let size={width:bounds.width,height:bounds.height},moved=false;
-    const move=ev=>{const dx=(ev.clientX-start.x)/this.camera.zoom,dy=(ev.clientY-start.y)/this.camera.zoom;moved ||= Math.abs(dx)+Math.abs(dy)>3;size=normalizeContextSize({width:bounds.width+dx,height:bounds.height+dy});if(this.grid)size=normalizeContextSize({width:Math.round(size.width/20)*20,height:Math.round(size.height/20)*20});element.style.width=`${size.width}px`;element.style.height=`${size.height}px`;this.drawEdges();};
+    if(this.api.locked())return;this.api.select(id,false,false);const node=this.graph.nodes.find(n=>n.id===id),bounds=this.bounds(id),element=this.cardElement(id),start={x:e.clientX,y:e.clientY};let size={width:bounds.width,height:bounds.height},moved=false;
+    const move=ev=>{const dx=(ev.clientX-start.x)/this.camera.zoom,dy=(ev.clientY-start.y)/this.camera.zoom;moved ||= Math.abs(dx)+Math.abs(dy)>3;size=nodeSize(node,{width:bounds.width+dx,height:bounds.height+dy});if(this.grid)size=nodeSize(node,{width:Math.round(size.width/20)*20,height:Math.round(size.height/20)*20});element.style.width=`${size.width}px`;element.style.height=`${size.height}px`;this.drawEdges();};
     const cleanup=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',cancel);};
-    const up=()=>{cleanup();if(this.api.locked()){this.update();return;}if(moved)this.api.resize(id,size);this.announce(`Contexto com ${size.width} por ${size.height} pixels.`);};
+    const up=()=>{cleanup();if(this.api.locked()){this.update();return;}if(moved)this.api.resize(id,size);this.cardElement(id)?.querySelector?.('.node-resize')?.focus?.();this.announce(`Elemento com ${size.width} por ${size.height} pixels.`);};
     const cancel=()=>{cleanup();this.update();};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});window.addEventListener('pointercancel',cancel,{once:true});e.preventDefault();e.stopPropagation();
   }
   connect(e,id,side='right'){
